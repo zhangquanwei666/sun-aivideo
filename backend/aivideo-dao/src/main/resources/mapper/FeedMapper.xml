@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个 <select> 的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.FeedMapper">
+
+    <resultMap id="FeedItemResultMap" type="com.sun.aivideo.dao.bo.FeedItemBO">
+        <result column="feed_type"  property="feedType"/>
+        <result column="id"         property="id"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <!-- FeedMapper#selectFeedPage：视频与图片合并，按创建时间倒序（不含已删除），分页由 MyBatis-Plus 插件处理 -->
+    <select id="selectFeedPage" resultMap="FeedItemResultMap">
+        SELECT feed.feed_type, feed.id, feed.created_at
+        FROM (
+            SELECT 'VIDEO' AS feed_type, id, created_at FROM t_video_task WHERE deleted = 0
+            UNION ALL
+            SELECT 'IMAGE' AS feed_type, id, created_at FROM t_image_task WHERE deleted = 0
+        ) feed
+        ORDER BY feed.created_at DESC, feed.id DESC
+    </select>
+
+</mapper>

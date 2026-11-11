@@ -29,6 +29,16 @@
       <div v-if="task.status === 'SUCCEEDED'" class="overlay-bottom num">
         <span class="tag">{{ task.duration }}s</span>
       </div>
+      <button
+        v-if="task.finished"
+        type="button"
+        class="delete-btn"
+        title="删除"
+        aria-label="删除视频"
+        @click.stop="$emit('delete', task)"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+      </button>
     </div>
 
     <div class="info">
@@ -53,7 +63,7 @@ const props = defineProps({
   task: { type: Object, required: true },
   now: { type: Number, default: () => Date.now() }
 })
-defineEmits(['open'])
+defineEmits(['open', 'delete'])
 
 const video = ref(null)
 const tone = computed(() => STATUS_TONE[props.task.status] || 'muted')
@@ -165,6 +175,39 @@ function pause() {
   position: absolute;
   right: 10px;
   bottom: 10px;
+}
+/* 悬停时出现的删除按钮（触屏设备上常显） */
+.delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(19, 19, 20, 0.72);
+  backdrop-filter: blur(8px);
+  color: var(--text-2);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.15s, transform 0.15s, background 0.15s, color 0.15s;
+}
+.card:hover .delete-btn,
+.delete-btn:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.delete-btn:hover {
+  background: rgba(242, 184, 181, 0.9);
+  color: #601410;
+}
+@media (hover: none) {
+  .delete-btn {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .tag {
   height: 22px;

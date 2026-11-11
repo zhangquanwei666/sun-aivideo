@@ -54,6 +54,7 @@ public final class VideoTaskConverter {
 
         VideoTaskVO.CostVO cost = new VideoTaskVO.CostVO();
         cost.setBilledDuration(t.getBilledDuration());
+        cost.setCurrency(t.getCurrency() == null ? "CNY" : t.getCurrency());
         cost.setUnitPrice(t.getUnitPrice());
         cost.setVideoCost(t.getVideoCost());
         cost.setLlmInputTokens(t.getLlmInputTokens());

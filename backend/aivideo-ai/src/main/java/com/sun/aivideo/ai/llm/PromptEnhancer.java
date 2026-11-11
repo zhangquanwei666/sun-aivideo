@@ -34,6 +34,13 @@ public class PromptEnhancer {
             3. 控制在 200 字以内，只输出提示词本身，不要解释、不要加引号或标题。
             """;
 
+    private static final String T2I_SYSTEM = """
+            你是专业的 AI 绘画提示词工程师。把用户的描述改写成一段适合文生图模型的中文提示词：
+            1. 明确主体、外观细节、姿态、场景、构图、光线、色调和画面风格；
+            2. 静态画面，不要描述镜头运动或随时间变化的动作；
+            3. 保留用户的核心意图，控制在 300 字以内，只输出提示词本身，不要解释、不要加引号或标题。
+            """;
+
     private final LlmStrategyFactory llmStrategyFactory;
 
     /** 是否有可用的大模型（真实或 Mock） */
@@ -52,7 +59,11 @@ public class PromptEnhancer {
             return PromptEnhanceResult.builder().prompt(prompt).enhanced(false).build();
         }
         LlmChatResponse resp = strategy.get().chat(LlmChatRequest.builder()
-                .systemPrompt(mode == VideoMode.I2V ? I2V_SYSTEM : T2V_SYSTEM)
+                .systemPrompt(switch (mode) {
+                    case I2V -> I2V_SYSTEM;
+                    case T2I -> T2I_SYSTEM;
+                    default -> T2V_SYSTEM;
+                })
                 .userPrompt(prompt)
                 .build());
         String text = resp.getContent();

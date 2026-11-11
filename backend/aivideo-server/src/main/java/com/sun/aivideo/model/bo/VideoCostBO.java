@@ -12,8 +12,11 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class VideoCostBO {
 
-    /** 元/秒 */
+    /** 单价的计价币种：CNY / USD */
+    private String currency;
+    /** 每秒单价（按 currency） */
     private BigDecimal unitPrice;
     private int billedSeconds;
+    /** 视频费用（人民币）= 单价折算人民币 × 计费秒数 */
     private BigDecimal cost;
 }

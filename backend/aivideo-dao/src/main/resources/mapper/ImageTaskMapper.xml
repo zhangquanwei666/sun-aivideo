@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个语句的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.ImageTaskMapper">
+
+    <!-- 统计结果 → ImageStatsBO -->
+    <resultMap id="ImageStatsResultMap" type="com.sun.aivideo.dao.bo.ImageStatsBO">
+        <result column="total_count"       property="totalCount"/>
+        <result column="succeeded_count"   property="succeededCount"/>
+        <result column="failed_count"      property="failedCount"/>
+        <result column="in_progress_count" property="inProgressCount"/>
+        <result column="total_images"      property="totalImages"/>
+        <result column="total_cost"        property="totalCost"/>
+        <result column="total_image_cost"  property="totalImageCost"/>
+        <result column="total_llm_cost"    property="totalLlmCost"/>
+        <result column="avg_cost"          property="avgCost"/>
+        <result column="avg_elapsed_ms"    property="avgElapsedMs"/>
+    </resultMap>
+
+    <!-- 按模型统计结果 → ImageModelStatBO -->
+    <resultMap id="ImageModelStatResultMap" type="com.sun.aivideo.dao.bo.ImageModelStatBO">
+        <result column="model_code"      property="modelCode"/>
+        <result column="total_count"     property="totalCount"/>
+        <result column="succeeded_count" property="succeededCount"/>
+        <result column="total_images"    property="totalImages"/>
+        <result column="total_cost"      property="totalCost"/>
+        <result column="avg_elapsed_ms"  property="avgElapsedMs"/>
+    </resultMap>
+
+    <!-- ImageTaskMapper#softDeleteById：逻辑删除 -->
+    <update id="softDeleteById">
+        UPDATE t_image_task
+        SET deleted    = 1,
+            deleted_at = CURRENT_TIMESTAMP(3),
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <!-- ImageTaskMapper#failUnfinished：服务重启时把未完成的任务标记为失败 -->
+    <update id="failUnfinished">
+        UPDATE t_image_task
+        SET status        = 'FAILED',
+            error_code    = 'INTERRUPTED',
+            error_message = #{errorMessage},
+            finished_at   = CURRENT_TIMESTAMP(3),
+            updated_at    = CURRENT_TIMESTAMP(3)
+        WHERE status IN ('SUBMITTING', 'RUNNING')
+          AND deleted = 0
+    </update>
+
+    <!-- ImageTaskMapper#selectStats：费用与耗时汇总（包含已删除：费用确实已经产生） -->
+    <select id="selectStats" resultMap="ImageStatsResultMap">
+        SELECT COUNT(*)                                                                          AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                 AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status IN ('FAILED', 'CANCELED', 'TIMEOUT') THEN 1 ELSE 0 END), 0) AS failed_count,
+               COALESCE(SUM(CASE WHEN status IN ('SUBMITTING', 'RUNNING') THEN 1 ELSE 0 END), 0)  AS in_progress_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN image_count ELSE 0 END), 0)       AS total_images,
+               COALESCE(SUM(total_cost), 0)                                                      AS total_cost,
+               COALESCE(SUM(image_cost), 0)                                                      AS total_image_cost,
+               COALESCE(SUM(llm_cost), 0)                                                        AS total_llm_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                           AS avg_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                     AS avg_elapsed_ms
+        FROM t_image_task
+    </select>
+
+    <!-- ImageTaskMapper#selectStatsByModel：按模型分组统计（包含已删除） -->
+    <select id="selectStatsByModel" resultMap="ImageModelStatResultMap">
+        SELECT model_code,
+               COUNT(*)                                                                    AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)           AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN image_count ELSE 0 END), 0) AS total_images,
+               COALESCE(SUM(total_cost), 0)                                                AS total_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)               AS avg_elapsed_ms
+        FROM t_image_task
+        GROUP BY model_code
+        ORDER BY total_cost DESC
+    </select>
+
+</mapper>

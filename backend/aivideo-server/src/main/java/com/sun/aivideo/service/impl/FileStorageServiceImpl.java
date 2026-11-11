@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.ai.image.model.GeneratedImage;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.config.AiVideoProperties;
 import com.sun.aivideo.config.AsyncConfig;
@@ -121,6 +122,56 @@ public class FileStorageServiceImpl implements FileStorageService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    @Override
+    public String saveVideoBytes(Long taskId, byte[] data) {
+        String relative = "videos/" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "/task-" + taskId + ".mp4";
+        Path target = filesRoot().resolve(relative);
+        try {
+            Files.createDirectories(target.getParent());
+            Files.write(target, data);
+            log.info("视频已保存到本地 taskId={} {} ({} KB)", taskId, target, data.length / 1024);
+            return FILES_PREFIX + relative;
+        } catch (IOException e) {
+            throw new BizException(500, "保存视频失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public String saveGeneratedImage(Long taskId, int index, GeneratedImage image) {
+        String ext = switch (image.getMimeType() == null ? "image/png" : image.getMimeType()) {
+            case "image/jpeg", "image/jpg" -> "jpg";
+            case "image/webp" -> "webp";
+            default -> "png";
+        };
+        String relative = "generated/" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
+                + "/img-" + taskId + "-" + index + "." + ext;
+        Path target = filesRoot().resolve(relative);
+        try {
+            Files.createDirectories(target.getParent());
+            if (image.getData() != null) {
+                Files.write(target, image.getData());
+            } else if (StringUtils.hasText(image.getUrl())) {
+                HttpRequest request = HttpRequest.newBuilder(URI.create(image.getUrl()))
+                        .timeout(Duration.ofMinutes(2))
+                        .GET().build();
+                HttpResponse<Path> resp = downloadClient.send(request, HttpResponse.BodyHandlers.ofFile(target));
+                if (resp.statusCode() / 100 != 2) {
+                    Files.deleteIfExists(target);
+                    throw new BizException(BizException.PROVIDER_ERROR, "下载生成的图片失败：HTTP " + resp.statusCode());
+                }
+            } else {
+                throw new BizException(BizException.PROVIDER_ERROR, "厂商返回的图片为空");
+            }
+            log.info("图片已保存到本地 taskId={} {} ({} KB)", taskId, target, Files.size(target) / 1024);
+            return FILES_PREFIX + relative;
+        } catch (IOException e) {
+            throw new BizException(500, "保存生成的图片失败：" + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BizException(500, "保存生成的图片被中断");
         }
     }
 

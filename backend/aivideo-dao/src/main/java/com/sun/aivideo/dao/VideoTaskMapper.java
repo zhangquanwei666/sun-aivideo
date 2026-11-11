@@ -35,7 +35,15 @@ public interface VideoTaskMapper extends BaseMapper<VideoTask> {
     List<VideoTask> selectActiveTasks(@Param("statuses") Collection<String> statuses);
 
     /**
-     * 费用与耗时汇总。
+     * 逻辑删除：deleted 置为 1 并记录删除时间，已删除的记录不会重复处理。
+     * 对应 XML：softDeleteById
+     *
+     * @return 影响行数，0 表示记录不存在或已被删除
+     */
+    int softDeleteById(@Param("id") Long id);
+
+    /**
+     * 费用与耗时汇总（包含已删除的任务）。
      * 对应 XML：selectStats
      */
     VideoStatsBO selectStats();

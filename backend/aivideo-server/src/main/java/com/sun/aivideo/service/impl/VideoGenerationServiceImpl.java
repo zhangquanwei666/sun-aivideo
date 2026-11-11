@@ -9,6 +9,7 @@ import com.sun.aivideo.dao.ModelConfigMapper;
 import com.sun.aivideo.dao.VideoTaskMapper;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.entity.VideoTask;
+import com.sun.aivideo.common.enums.ApiProtocol;
 import com.sun.aivideo.common.enums.TaskStatus;
 import com.sun.aivideo.common.enums.VideoMode;
 import com.sun.aivideo.dao.bo.ModelStatBO;
@@ -53,7 +54,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     @Override
     public VideoTaskVO create(VideoGenerateDTO dto) {
         ModelConfig model = modelConfigService.getEnabledByCode(dto.getModelCode());
-        VideoMode mode = VideoMode.valueOf(model.getMode());
+        VideoMode mode = resolveMode(dto, model);
         String ratio = validate(dto, model, mode);
 
         VideoTask task = new VideoTask();
@@ -68,6 +69,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         task.setRatio(ratio);
         task.setDuration(dto.getDuration());
         task.setEnhancePrompt(Boolean.TRUE.equals(dto.getEnhancePrompt()) && promptEnhancer.available());
+        task.setCurrency(model.getCurrency());
         task.setPromptExtend(!Boolean.FALSE.equals(dto.getPromptExtend()));
         task.setWatermark(Boolean.TRUE.equals(dto.getWatermark()));
         task.setAudio(Boolean.TRUE.equals(model.getSupportsAudio()) ? dto.getAudio() : null);
@@ -93,6 +95,21 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         }
         ModelConfig model = modelConfigService.findByCode(task.getModelCode());
         return VideoTaskConverter.toVO(task, model, estimate(task, model));
+    }
+
+    @Override
+    public Map<Long, VideoTaskVO> listByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, ModelConfig> models = modelMap();
+        Map<Long, VideoTaskVO> result = new java.util.LinkedHashMap<>();
+        // selectBatchIds 由 @TableLogic 自动过滤已删除的记录
+        for (VideoTask t : videoTaskMapper.selectBatchIds(ids)) {
+            ModelConfig model = models.get(t.getModelCode());
+            result.put(t.getId(), VideoTaskConverter.toVO(t, model, estimate(t, model)));
+        }
+        return result;
     }
 
     @Override
@@ -137,7 +154,39 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         return vo;
     }
 
+    @Override
+    public void delete(Long id) {
+        // selectById 由 @TableLogic 自动过滤已删除的记录
+        VideoTask task = videoTaskMapper.selectById(id);
+        if (task == null) {
+            throw new BizException(BizException.NOT_FOUND, "任务不存在或已删除：" + id);
+        }
+        TaskStatus status = TaskStatus.of(task.getStatus());
+        if (status == null || !status.isFinished()) {
+            throw new BizException("视频还在生成中，完成后才能删除");
+        }
+        if (videoTaskMapper.softDeleteById(id) == 0) {
+            throw new BizException(BizException.NOT_FOUND, "任务不存在或已删除：" + id);
+        }
+        log.info("视频任务已删除（逻辑删除）id={} status={}", id, task.getStatus());
+    }
+
     // ------------------------------------------------------------------
+
+    /**
+     * 确定生成方式：模型只支持一种时直接用；同时支持文生 / 图生（如 Gemini Omni）时，带首帧图片就是图生视频。
+     */
+    private VideoMode resolveMode(VideoGenerateDTO dto, ModelConfig model) {
+        List<String> modes = ModelConfigConverter.split(model.getMode());
+        if (modes.size() == 1) {
+            return VideoMode.valueOf(modes.get(0));
+        }
+        VideoMode mode = StringUtils.hasText(dto.getImageUrl()) ? VideoMode.I2V : VideoMode.T2V;
+        if (!modes.contains(mode.name())) {
+            throw new BizException(model.getDisplayName() + " 不支持" + (mode == VideoMode.I2V ? "图生视频" : "文生视频"));
+        }
+        return mode;
+    }
 
     /** 校验参数是否符合模型能力，返回最终使用的画幅比例 */
     private String validate(VideoGenerateDTO dto, ModelConfig model, VideoMode mode) {
@@ -161,11 +210,14 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
             throw new BizException(String.format("%s 时长范围为 %d~%d 秒",
                     model.getDisplayName(), model.getMinDuration(), model.getMaxDuration()));
         }
-        if (mode == VideoMode.I2V) {
-            // 图生视频的画幅跟随首帧图片
-            return null;
+        if (mode == VideoMode.I2V && ApiProtocol.GEMINI_OMNI.name().equals(model.getProtocol()) && dto.getDuration() > 10) {
+            throw new BizException(model.getDisplayName() + " 使用首帧图片时最长 10 秒");
         }
         List<String> ratios = ModelConfigConverter.split(model.getRatios());
+        if (mode == VideoMode.I2V && (ratios.isEmpty() || !StringUtils.hasText(dto.getRatio()))) {
+            // 图生视频默认画幅跟随首帧图片；模型支持画幅参数时才使用前端选择的画幅
+            return null;
+        }
         if (!StringUtils.hasText(dto.getRatio())) {
             return ratios.isEmpty() ? null : ratios.get(0);
         }

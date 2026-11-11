@@ -28,6 +28,7 @@
         <result column="error_code"              property="errorCode"/>
         <result column="error_message"           property="errorMessage"/>
         <result column="billed_duration"         property="billedDuration"/>
+        <result column="currency"                property="currency"/>
         <result column="unit_price"              property="unitPrice"/>
         <result column="video_cost"              property="videoCost"/>
         <result column="llm_input_tokens"        property="llmInputTokens"/>
@@ -42,6 +43,8 @@
         <result column="provider_scheduled_time" property="providerScheduledTime"/>
         <result column="provider_end_time"       property="providerEndTime"/>
         <result column="finished_at"             property="finishedAt"/>
+        <result column="deleted"                 property="deleted"/>
+        <result column="deleted_at"              property="deletedAt"/>
         <result column="created_at"              property="createdAt"/>
         <result column="updated_at"              property="updatedAt"/>
     </resultMap>
@@ -74,20 +77,22 @@
         id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
         resolution, ratio, duration, enhance_prompt, prompt_extend, watermark, audio, seed,
         provider_task_id, remote_video_url, local_video_path, error_code, error_message,
-        billed_duration, unit_price, video_cost, llm_input_tokens, llm_output_tokens, llm_cost, total_cost,
+        billed_duration, currency, unit_price, video_cost, llm_input_tokens, llm_output_tokens, llm_cost, total_cost,
         enhance_ms, queue_ms, generate_ms, total_elapsed_ms,
-        provider_submit_time, provider_scheduled_time, provider_end_time, finished_at, created_at, updated_at
+        provider_submit_time, provider_scheduled_time, provider_end_time, finished_at,
+        deleted, deleted_at, created_at, updated_at
     </sql>
 
     <!-- 已结束（失败/取消/超时）与进行中的状态集合 -->
     <sql id="Failed_Status">'FAILED', 'CANCELED', 'TIMEOUT'</sql>
     <sql id="In_Progress_Status">'SUBMITTING', 'PENDING', 'RUNNING'</sql>
 
-    <!-- VideoTaskMapper#selectTaskPage：分页查询，分页由 MyBatis-Plus 插件处理 -->
+    <!-- VideoTaskMapper#selectTaskPage：分页查询（不含已删除），分页由 MyBatis-Plus 插件处理 -->
     <select id="selectTaskPage" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM t_video_task
         <where>
+            deleted = 0
             <if test="status != null and status != ''">
                 AND status = #{status}
             </if>
@@ -101,11 +106,12 @@
         ORDER BY id DESC
     </select>
 
-    <!-- VideoTaskMapper#selectActiveTasks：需要轮询厂商的任务 -->
+    <!-- VideoTaskMapper#selectActiveTasks：需要轮询厂商的任务（不含已删除） -->
     <select id="selectActiveTasks" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM t_video_task
-        WHERE provider_task_id IS NOT NULL
+        WHERE deleted = 0
+          AND provider_task_id IS NOT NULL
           AND status IN
           <foreach collection="statuses" item="s" open="(" separator="," close=")">
               #{s}
@@ -113,7 +119,17 @@
         ORDER BY id
     </select>
 
-    <!-- VideoTaskMapper#selectStats：费用与耗时汇总 -->
+    <!-- VideoTaskMapper#softDeleteById：逻辑删除（只允许删除未删除的记录，返回影响行数） -->
+    <update id="softDeleteById">
+        UPDATE t_video_task
+        SET deleted    = 1,
+            deleted_at = CURRENT_TIMESTAMP(3),
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <!-- VideoTaskMapper#selectStats：费用与耗时汇总（包含已删除的任务：删除只是隐藏，费用确实已经产生） -->
     <select id="selectStats" resultMap="VideoStatsResultMap">
         SELECT COUNT(*)                                                                         AS total_count,
                COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
@@ -128,7 +144,7 @@
         FROM t_video_task
     </select>
 
-    <!-- VideoTaskMapper#selectStatsByModel：按模型分组统计 -->
+    <!-- VideoTaskMapper#selectStatsByModel：按模型分组统计（同样包含已删除的任务） -->
     <select id="selectStatsByModel" resultMap="ModelStatResultMap">
         SELECT model_code,
                COUNT(*)                                                                         AS total_count,

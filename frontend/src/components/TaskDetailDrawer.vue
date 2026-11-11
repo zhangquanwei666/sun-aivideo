@@ -25,6 +25,15 @@
             <button class="btn" @click="$emit('reuse', task)">复用参数</button>
             <a v-if="task.videoUrl" class="btn" :href="task.videoUrl" :download="`task-${task.id}.mp4`" target="_blank">下载视频</a>
             <span v-if="task.mock" class="badge warning">Mock 结果，未产生真实费用</span>
+            <button
+              v-if="task.finished"
+              class="btn btn-ghost delete"
+              title="删除后从列表中隐藏，费用统计不受影响"
+              @click="$emit('delete', task)"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+              删除
+            </button>
           </div>
 
           <section class="section">
@@ -32,7 +41,7 @@
             <div class="cost-grid num">
               <div class="row">
                 <span>视频生成</span>
-                <span class="formula">{{ task.cost.unitPrice != null ? `¥${Number(task.cost.unitPrice).toFixed(2)}/秒 × ${task.cost.billedDuration}s` : '—' }}</span>
+                <span class="formula">{{ task.cost.unitPrice != null ? `${task.cost.currency === 'USD' ? '$' + Number(task.cost.unitPrice).toFixed(3) : '¥' + Number(task.cost.unitPrice).toFixed(2)}/秒 × ${task.cost.billedDuration}s` : '—' }}</span>
                 <span>{{ money(task.cost.videoCost) }}</span>
               </div>
               <div class="row">
@@ -104,7 +113,7 @@ import { computed } from 'vue'
 import { elapsed, money, STATUS_TONE } from '@/utils/format'
 
 const props = defineProps({ task: { type: Object, default: null } })
-defineEmits(['close', 'reuse'])
+defineEmits(['close', 'reuse', 'delete'])
 
 const tone = computed(() => (props.task ? STATUS_TONE[props.task.status] || 'muted' : 'muted'))
 
@@ -199,6 +208,14 @@ const segments = computed(() => {
   gap: 8px;
   margin: 14px 0 6px;
   flex-wrap: wrap;
+}
+.actions .delete {
+  margin-left: auto;
+  color: var(--danger);
+}
+.actions .delete:hover {
+  background: rgba(242, 184, 181, 0.12);
+  color: var(--danger);
 }
 .section {
   margin-top: 12px;

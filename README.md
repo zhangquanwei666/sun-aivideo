@@ -1,17 +1,17 @@
 # Sun AI Video
 
-前后端分离的 AI 短视频生成项目：调用阿里云百炼的**通义万相**生成视频，用**千问**（LangChain4j）润色提示词，并统计每条视频的**生成耗时**和**费用**。
+前后端分离的 AI 短视频生成项目：视频生成支持阿里云百炼（**通义万相**）和 Google Gemini（**Omni Flash**）两家切换；**文生图**支持阿里云百炼（万相 2.7 图像）和 Google Gemini（Nano Banana）两家切换，生成的图片可以一键作为视频首帧；用**千问**（LangChain4j）润色提示词，并统计每条视频 / 图片的**生成耗时**和**费用**。
 
 ```
 sun-aivideo/
 ├── backend/                 Maven 父工程（Spring Boot 3.5 · Java 21）
 │   ├── aivideo-common/      通用：枚举、请求 / 响应基类、业务异常 BizException
-│   ├── aivideo-ai/          AI 调用（策略 + 工厂）：视频生成策略、大模型策略、提示词润色
+│   ├── aivideo-ai/          AI 调用（策略 + 工厂）：视频生成、文生图、大模型策略、提示词润色
 │   ├── aivideo-dao/         数据访问（MyBatis-Plus）：实体、Mapper 接口、Mapper XML
 │   ├── aivideo-server/      Web 服务：controller / service、费用与耗时统计（启动模块）
 │   └── sql/                 数据库脚本（手动执行）
-│       ├── ddl.sql          DDL：建表（t_model_config、t_video_task）
-│       └── dml.sql          DML：初始化数据（视频模型与单价）
+│       ├── ddl.sql          DDL：建表（视频：t_model_config、t_video_task；文生图：t_image_model_config、t_image_task）
+│       └── dml.sql          DML：初始化数据（视频模型与单价、文生图模型与单价）
 └── frontend/                Vue 3.5 · Vite 6 · Vue Router · Axios（暗色风格）
 ```
 
@@ -33,7 +33,8 @@ aivideo-server ──► aivideo-ai ──► aivideo-common
 | 后端框架 | Spring Boot 3.5.6 + Java 21 | |
 | 数据访问 | MyBatis-Plus 3.5.7 + Mapper XML | 单表增删改用 `BaseMapper`，自定义查询统一写在 XML（不写注解 SQL）。各环境均为 MySQL（uat 使用阿里云 RDS） |
 | 大模型 | LangChain4j 1.8.0（`langchain4j-open-ai`） | 策略 + 工厂：`QwenLlmStrategy` 通过百炼的 OpenAI 兼容接口调用千问 |
-| 视频模型 | 百炼万相 HTTP API（Spring `RestClient`） | 策略 + 工厂：`DashScopeWanVideoStrategy`。LangChain4j 和 AgentScope 都没有封装视频生成 |
+| 视频模型 | 百炼万相 HTTP API、Gemini Omni Flash（Interactions API），均用 Spring `RestClient` | 策略 + 工厂：`DashScopeWanVideoStrategy`、`GeminiOmniVideoStrategy`、`MockVideoStrategy`。LangChain4j 和 AgentScope 都没有封装视频生成 |
+| 文生图 | 百炼万相 2.7 图像、Gemini Nano Banana（HTTP 同步接口） | 策略 + 工厂：`DashScopeWanImageStrategy`、`GeminiNanoBananaStrategy`、`MockImageStrategy` |
 | 前端 | Vue 3 + Vite 6 | 无 UI 库，自写暗色组件 |
 
 ## 后端模块与分层
@@ -68,6 +69,7 @@ aivideo-server ──► aivideo-ai ──► aivideo-common
 │   ├── strategy/
 │   │   ├── VideoGenerationStrategy       策略接口：provider() / submit() / query()
 │   │   ├── DashScopeWanVideoStrategy     百炼万相
+│   │   ├── GeminiOmniVideoStrategy       Google Gemini Omni Flash
 │   │   └── MockVideoStrategy             本地模拟
 │   └── model/                            VideoGenerateRequest、VideoSubmitResult、VideoTaskResult
 ├── llm/
@@ -83,7 +85,7 @@ aivideo-server ──► aivideo-ai ──► aivideo-common
 ```
 
 扩展方式：
-- **新增视频厂商**（可灵、火山引擎 Seedance、Google Veo 等）：
+- **新增视频厂商**（可灵、火山引擎 Seedance 等）：
   1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
   2. 实现 `VideoGenerationStrategy` 并加上 `@Component`，在 `available()` 里判断该厂商的 API Key 是否已配置；
   3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
@@ -187,7 +189,9 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 
 | 变量 | uat | pro | 说明 |
 |---|---|---|---|
-| `DASHSCOPE_API_KEY` | 可选 | **必填** | 百炼 API Key，uat 不配时走 Mock |
+| `DASHSCOPE_API_KEY` | 可选 | **必填** | 百炼 API Key（视频、万相文生图、千问润色共用），uat 不配时走 Mock |
+| `GEMINI_API_KEY` | 可选 | 可选 | Google Gemini API Key（Nano Banana 文生图 + Omni Flash 视频），不配时 Gemini 走 Mock（pro 不允许 Mock，会提示未配置） |
+| `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` | 可选 | 可选 | 国内直连 Google 不通时的 HTTP 代理，例如 `127.0.0.1` / `7890`；也可以把 `aivideo.gemini.base-url` 改成中转地址 |
 | `MYSQL_PASSWORD` | **必填** | **必填** | uat 未配置时为占位符 `XXXX`，会连接失败 |
 | `MYSQL_HOST` | 默认 `rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com` | **必填** | |
 | `MYSQL_USER` | 默认 `aivideo` | **必填** | |
@@ -271,8 +275,15 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 | POST | `/api/videos` | `VideoGenerateDTO`（JSON） | `VideoTaskVO` | 创建视频生成任务 |
 | GET | `/api/videos/{id}` | `VideoDetailDTO` | `VideoTaskVO` | 任务详情（状态、视频地址、费用、耗时） |
 | GET | `/api/videos?pageNum=&pageSize=&status=&modelCode=&keyword=` | `VideoTaskQueryDTO` | `PageVO<VideoTaskVO>` | 分页查询 |
-| GET | `/api/videos/stats` | — | `VideoStatsVO` | 费用与耗时汇总，含按模型统计 |
-| GET | `/api/models` | — | `ModelListVO` | 可选的厂商（含是否已配置 Key）与模型（含参数范围、单价） |
+| GET | `/api/videos/stats` | — | `VideoStatsVO` | 费用与耗时汇总，含按模型统计（包含已删除的任务） |
+| DELETE | `/api/videos/{id}` | `VideoDeleteDTO` | `BaseResponse` | 删除视频（逻辑删除）：只能删除已结束的任务，删除后列表和详情不再返回 |
+| GET | `/api/models` | — | `ModelListVO` | 可选的视频厂商（含是否已配置 Key）与模型（含参数范围、单价） |
+| POST | `/api/images` | `ImageGenerateDTO`（JSON） | `ImageTaskVO` | 创建文生图任务（可带参考图） |
+| GET | `/api/images/{id}` | `ImageIdDTO` | `ImageTaskVO` | 图片任务详情（状态、图片地址、费用、耗时） |
+| DELETE | `/api/images/{id}` | `ImageIdDTO` | `BaseResponse` | 删除图片（逻辑删除，规则同视频） |
+| GET | `/api/images/stats` | — | `ImageStatsVO` | 文生图费用与耗时汇总，含按模型统计 |
+| GET | `/api/image-models` | — | `ImageModelListVO` | 可选的文生图厂商与模型（含清晰度、画幅、参考图张数、单价） |
+| GET | `/api/feed?pageNum=&pageSize=` | `FeedQueryDTO` | `PageVO<FeedItemVO>` | 生成记录：视频与图片合并，按时间倒序（不含已删除） |
 | POST | `/api/files/images` | `ImageUploadDTO`（multipart，字段名 `file`） | `UploadVO` | 上传图生视频的首帧图片 |
 | GET | `/api/system/status` | — | `SystemStatusVO` | 当前环境、是否为 Mock 模式、润色是否可用 |
 
@@ -309,6 +320,43 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 ```
 
 图生视频把 `modelCode` 换成 `wan2.7-i2v` / `wan2.6-i2v` / `wan2.6-i2v-flash`，再传 `imageUrl`。它可以是公网地址，也可以是上传接口返回的 `/files/...` 路径；本地路径由后端转成 base64 提交。
+
+## 文生图（阿里云百炼 / Google Gemini）
+
+- **入口**：生成页输入框的"生成方式"选择**文生图**，再选厂商（阿里云百炼 / Google Gemini）、模型、清晰度（1K / 2K / 4K）和画幅；可上传参考图（数量上限由模型决定）。
+- **初始模型**（`dml.sql`，可直接改表）：
+
+  | 厂商 | 模型 | 单价（每张） |
+  |---|---|---|
+  | 阿里云百炼 | 万相 2.7 图像 `wan2.7-image` | ¥0.2（1K / 2K） |
+  | 阿里云百炼 | 万相 2.7 图像 Pro `wan2.7-image-pro` | ¥0.5（1K / 2K / 4K） |
+  | Google Gemini | Nano Banana 2 `gemini-3.1-flash-image` | $0.067 / $0.101 / $0.151（1K / 2K / 4K） |
+  | Google Gemini | Nano Banana Pro `gemini-3-pro-image` | $0.134 / $0.134 / $0.24（1K / 2K / 4K） |
+
+- **计价**：图片按张计费。美元计价的模型按 `aivideo.cost.usd-to-cny`（默认 7.2）折算成人民币后计入统计。
+- **流程**：提交后后台线程执行：可选的千问润色 → 同步调用厂商生成 → 图片立刻保存到本地 `/files/generated/...`（百炼返回的地址 24 小时失效）→ 记录费用和耗时。图片是同步生成的，不需要定时轮询；服务重启时会把中断的任务标记为失败。
+- **用作首帧**：图片卡片上的"生成视频"按钮，或详情里的"用作首帧生成视频"，会把这张图设为图生视频的首帧。
+- **网络**：国内直连 Google 不通时，配置 `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` 走本机代理，或把 `aivideo.gemini.base-url` 换成中转地址。
+- **新增文生图厂商**：在 `ImageProvider` 加枚举值，实现 `ImageGenerationStrategy` 并加 `@Component`，再往 `t_image_model_config` 插入模型和单价。
+
+## Gemini 视频生成（Omni Flash）
+
+- **为什么不是 Veo**：Gemini API 中的 Veo 已于 2026-10-22 下线，官方替代为 Omni Flash，所以接入的是 Omni Flash。
+- **入口**：生成页选择"文生视频"或"图生视频"，厂商选 **Google Gemini**，模型选 **Gemini Omni Flash**。同一个模型同时支持两种方式（`t_model_config.mode` 填 `T2V,I2V`）。
+- **参数**：720P / 1080P，画幅 16:9 / 9:16（图生视频也可以选），3~15 秒；**带首帧图片时最长 10 秒**（前端时长列表自动收窄，后端也会校验）。视频自带原生音频。
+- **计价**：`currency = USD`，720P $0.07/秒、1080P $0.104/秒（单价待核实，以 Google 官方定价为准，可直接改表）。按 `aivideo.cost.usd-to-cny` 折算成人民币后计入费用统计；详情和用量页的单价显示美元原价。
+- **调用方式**：`POST {video-base-url}/interactions`，同步等待生成完成（读取超时 `video-read-timeout-seconds`，默认 600 秒）。返回的视频内容（base64 或下载地址）**直接保存到本地** `/files/videos/...`，后续轮询直接从内存取结果；服务重启导致缓存丢失时，改用 `GET /interactions/{id}` 查询状态。
+- **网络**：与文生图一样，国内需配置 `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT`，或把 `aivideo.gemini.video-base-url` 换成中转地址。
+
+## 删除视频（逻辑删除）
+
+- 前端：视频 / 图片卡片悬停时右上角出现删除按钮，详情面板里也有"删除"按钮，确认后删除。图片的删除规则与视频相同。
+- 规则：
+  - 只能删除**已结束**的任务（成功 / 失败 / 取消 / 超时）。生成中的任务不能删除，避免后台还在轮询计费、记录却已经隐藏。
+  - 删除只把 `t_video_task.deleted` 置为 1，并记录 `deleted_at`，数据库记录和本地视频文件都保留。
+  - 删除后：生成记录、任务明细和详情接口都不再返回这条任务；**用量与费用统计仍然计入**，因为费用确实已经产生。
+- 实现：实体 `VideoTask.deleted` 加了 `@TableLogic`，`BaseMapper` 的方法会自动带上 `deleted = 0` 条件；XML 里的自定义查询都显式写了 `deleted = 0`，删除操作由 XML 中的 `softDeleteById` 完成。
+- 已经建过表的库需要先加字段，执行 `backend/sql/ddl.sql` 末尾"表结构变更记录"里的 `ALTER TABLE` 语句。
 
 ## 注意
 

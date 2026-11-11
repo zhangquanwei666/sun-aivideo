@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个 <select> 的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.ImageModelConfigMapper">
+
+    <!-- 表 t_image_model_config → 实体 ImageModelConfig -->
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.ImageModelConfig">
+        <id     column="id"                   property="id"/>
+        <result column="model_code"           property="modelCode"/>
+        <result column="display_name"         property="displayName"/>
+        <result column="provider"             property="provider"/>
+        <result column="sizes"                property="sizes"/>
+        <result column="ratios"               property="ratios"/>
+        <result column="max_reference_images" property="maxReferenceImages"/>
+        <result column="currency"             property="currency"/>
+        <result column="price_1k"             property="price1k"/>
+        <result column="price_2k"             property="price2k"/>
+        <result column="price_4k"             property="price4k"/>
+        <result column="description"          property="description"/>
+        <result column="price_note"           property="priceNote"/>
+        <result column="enabled"              property="enabled"/>
+        <result column="sort_order"           property="sortOrder"/>
+        <result column="created_at"           property="createdAt"/>
+        <result column="updated_at"           property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, model_code, display_name, provider, sizes, ratios, max_reference_images, currency,
+        price_1k, price_2k, price_4k, description, price_note, enabled, sort_order, created_at, updated_at
+    </sql>
+
+    <!-- ImageModelConfigMapper#selectEnabledList：已启用的模型 -->
+    <select id="selectEnabledList" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_image_model_config
+        WHERE enabled = 1
+        ORDER BY sort_order, id
+    </select>
+
+    <!-- ImageModelConfigMapper#selectByModelCode：按模型编码查询 -->
+    <select id="selectByModelCode" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_image_model_config
+        WHERE model_code = #{modelCode}
+    </select>
+
+</mapper>

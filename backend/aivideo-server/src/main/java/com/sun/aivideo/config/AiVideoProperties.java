@@ -3,6 +3,7 @@ package com.sun.aivideo.config;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,6 +17,13 @@ public class AiVideoProperties {
     private Cors cors = new Cors();
     private Storage storage = new Storage();
     private Polling polling = new Polling();
+    private Cost cost = new Cost();
+
+    @Data
+    public static class Cost {
+        /** 美元兑人民币汇率：Gemini 等按美元计价的模型，费用按此折算成人民币后再统计 */
+        private BigDecimal usdToCny = new BigDecimal("7.2");
+    }
 
     @Data
     public static class Cors {

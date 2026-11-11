@@ -57,7 +57,9 @@ public class VideoTaskVO extends BaseResponse {
     public static class CostVO {
         /** 计费时长（秒） */
         private Integer billedDuration;
-        /** 元/秒 */
+        /** 单价币种：CNY / USD（videoCost、totalCost 始终为人民币） */
+        private String currency;
+        /** 单价（每秒，币种见 currency） */
         private BigDecimal unitPrice;
         private BigDecimal videoCost;
         private Integer llmInputTokens;

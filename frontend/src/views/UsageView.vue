@@ -3,7 +3,9 @@
     <header class="page-header">
       <div>
         <h1 class="page-title">用量与费用</h1>
-        <p class="page-sub">每条视频的计费时长、单价、费用与各阶段耗时</p>
+        <p class="page-sub">
+          视频与文生图的费用和耗时 · 合计花费 <span class="num">{{ money(Number(stats?.totalCost || 0) + Number(imageStats?.totalCost || 0)) }}</span>
+        </p>
       </div>
       <button class="btn" :disabled="loading" @click="reload">刷新</button>
     </header>
@@ -11,7 +13,7 @@
     <div class="content">
       <section class="tiles">
         <div class="tile">
-          <span class="tile-label">累计花费</span>
+          <span class="tile-label">视频累计花费</span>
           <span class="tile-value num">{{ money(stats?.totalCost) }}</span>
           <span class="tile-sub num">视频 {{ money(stats?.totalVideoCost) }} · 润色 {{ money(stats?.totalLlmCost) }}</span>
         </div>
@@ -38,7 +40,7 @@
       </section>
 
       <section v-if="stats?.byModel?.length" class="panel block">
-        <h3>按模型</h3>
+        <h3>视频 · 按模型</h3>
         <div class="table-wrap">
           <table>
             <thead>
@@ -58,9 +60,54 @@
         </div>
       </section>
 
+      <!-- 文生图 -->
+      <section class="tiles image-tiles">
+        <div class="tile">
+          <span class="tile-label">文生图累计花费</span>
+          <span class="tile-value num">{{ money(imageStats?.totalCost) }}</span>
+          <span class="tile-sub num">图片 {{ money(imageStats?.totalImageCost) }} · 润色 {{ money(imageStats?.totalLlmCost) }}</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">图片张数</span>
+          <span class="tile-value num">{{ imageStats?.totalImages ?? '—' }}</span>
+          <span class="tile-sub num">共 {{ imageStats?.totalCount ?? 0 }} 次 · 失败 {{ imageStats?.failedCount ?? 0 }} · 进行中 {{ imageStats?.inProgressCount ?? 0 }}</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">平均每张费用</span>
+          <span class="tile-value num">{{ money(imageStats?.avgCost) }}</span>
+          <span class="tile-sub">美元计价的按汇率折算成人民币</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">平均耗时</span>
+          <span class="tile-value num">{{ elapsed(imageStats?.avgElapsedMs) }}</span>
+          <span class="tile-sub">从点击生成到图片完成</span>
+        </div>
+      </section>
+
+      <section v-if="imageStats?.byModel?.length" class="panel block">
+        <h3>文生图 · 按模型</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>模型</th><th class="r">次数</th><th class="r">成功</th><th class="r">图片张数</th><th class="r">平均耗时</th><th class="r">花费</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in imageStats.byModel" :key="m.modelCode">
+                <td>{{ m.modelName }}<span class="code">{{ m.modelCode }}</span></td>
+                <td class="r num">{{ m.totalCount }}</td>
+                <td class="r num">{{ m.succeededCount }}</td>
+                <td class="r num">{{ m.totalImages }}</td>
+                <td class="r num">{{ elapsed(m.avgElapsedMs) }}</td>
+                <td class="r num strong">{{ money(m.totalCost) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel block">
         <div class="block-head">
-          <h3>任务明细</h3>
+          <h3>视频任务明细</h3>
           <PillSelect v-model="statusFilter" :options="statusOptions" placement="down" />
         </div>
         <div class="table-wrap">
@@ -79,7 +126,7 @@
                 <td><span class="badge" :class="STATUS_TONE[t.status]"><span class="dot" />{{ t.statusText }}</span></td>
                 <td class="nowrap muted">{{ t.resolution }}<template v-if="t.ratio"> · {{ t.ratio }}</template> · {{ t.duration }}s</td>
                 <td class="r num">{{ seconds(t.cost.billedDuration) }}</td>
-                <td class="r num">{{ t.cost.unitPrice != null ? '¥' + Number(t.cost.unitPrice).toFixed(2) + '/s' : '—' }}</td>
+                <td class="r num">{{ t.cost.unitPrice != null ? (t.cost.currency === 'USD' ? '$' + Number(t.cost.unitPrice).toFixed(3) : '¥' + Number(t.cost.unitPrice).toFixed(2)) + '/s' : '—' }}</td>
                 <td class="r num">{{ money(t.cost.videoCost) }}</td>
                 <td class="r num">{{ money(t.cost.llmCost) }}</td>
                 <td class="r num strong">{{ t.finished ? money(t.cost.totalCost) : '≈' + money(t.cost.estimatedCost) }}</td>
@@ -107,7 +154,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import PillSelect from '@/components/PillSelect.vue'
-import { getStats, pageVideos } from '@/api'
+import { getImageStats, getStats, pageVideos } from '@/api'
 import { elapsed, money, seconds, shortTime, STATUS_TONE } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
 
@@ -116,6 +163,7 @@ defineProps({ status: { type: Object, default: () => ({}) } })
 const toast = useToast()
 const pageSize = 20
 const stats = ref(null)
+const imageStats = ref(null)
 const page = ref({ total: 0, records: [] })
 const pageNum = ref(1)
 const loading = ref(false)
@@ -144,11 +192,11 @@ async function loadPage() {
 }
 
 async function reload() {
-  try {
-    stats.value = await getStats()
-  } catch (e) {
-    toast.error('加载统计失败：' + e.message)
-  }
+  const [v, i] = await Promise.allSettled([getStats(), getImageStats()])
+  if (v.status === 'fulfilled') stats.value = v.value
+  else toast.error('加载视频统计失败：' + v.reason.message)
+  if (i.status === 'fulfilled') imageStats.value = i.value
+  else toast.error('加载文生图统计失败：' + i.reason.message)
   await loadPage()
 }
 

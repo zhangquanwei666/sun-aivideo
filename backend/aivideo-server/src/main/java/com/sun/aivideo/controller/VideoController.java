@@ -1,6 +1,7 @@
 package com.sun.aivideo.controller;
 
 import com.sun.aivideo.common.base.BaseResponse;
+import com.sun.aivideo.model.dto.VideoDeleteDTO;
 import com.sun.aivideo.model.dto.VideoDetailDTO;
 import com.sun.aivideo.model.dto.VideoGenerateDTO;
 import com.sun.aivideo.model.dto.VideoTaskQueryDTO;
@@ -10,6 +11,7 @@ import com.sun.aivideo.model.vo.VideoTaskVO;
 import com.sun.aivideo.service.VideoGenerationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,5 +50,12 @@ public class VideoController {
     @GetMapping("/stats")
     public VideoStatsVO stats() {
         return BaseResponse.ok(videoGenerationService.stats());
+    }
+
+    /** 删除视频（逻辑删除，只隐藏不物理删除；生成中的任务不能删除） */
+    @DeleteMapping("/{id}")
+    public BaseResponse delete(@Valid VideoDeleteDTO dto) {
+        videoGenerationService.delete(dto.getId());
+        return BaseResponse.ok();
     }
 }

@@ -1,13 +1,15 @@
 package com.sun.aivideo.common.enums;
 
 /**
- * 百炼万相不同版本的请求体格式不同。
+ * 视频模型的请求协议：不同厂商、不同版本的请求体格式不同。
  */
 public enum ApiProtocol {
-    /** wan2.7 文生视频：input.prompt + parameters.resolution/ratio/duration */
+    /** 百炼 wan2.7 文生视频：input.prompt + parameters.resolution/ratio/duration */
     WAN27_T2V,
-    /** wan2.7 图生视频：input.media[{type:first_frame,url}] */
+    /** 百炼 wan2.7 图生视频：input.media[{type:first_frame,url}] */
     WAN27_I2V,
-    /** wan2.6 及以前的图生视频：input.img_url */
-    WAN_LEGACY_I2V
+    /** 百炼 wan2.6 及以前的图生视频：input.img_url */
+    WAN_LEGACY_I2V,
+    /** Google Gemini Omni Flash（Interactions API）：input[] + response_format，文生视频与首帧图生视频共用 */
+    GEMINI_OMNI
 }

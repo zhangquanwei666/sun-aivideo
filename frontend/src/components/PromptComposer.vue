@@ -1,6 +1,7 @@
 <template>
   <form class="composer" :class="{ focused }" @submit.prevent="submit">
     <div class="input-row">
+      <!-- 图生视频：首帧图片 -->
       <div
         v-if="form.mode === 'I2V'"
         class="image-slot"
@@ -25,12 +26,38 @@
         <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp" hidden @change="onFile" />
       </div>
 
+      <!-- 文生图：参考图（可选，多张） -->
+      <div v-if="isImage && maxReferences > 0" class="refs">
+        <div v-for="(ref, i) in form.references" :key="ref.url" class="image-slot filled small">
+          <img :src="ref.preview" alt="参考图" />
+          <button type="button" class="remove" title="移除参考图" @click.stop="removeReference(i)">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <div
+          v-if="form.references.length < maxReferences"
+          class="image-slot small"
+          :class="{ dragging }"
+          :title="`参考图（可选），最多 ${maxReferences} 张：用来保持角色、物体或风格一致`"
+          @click="refInput?.click()"
+          @dragover.prevent="dragging = true"
+          @dragleave.prevent="dragging = false"
+          @drop.prevent="onDropReferences"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" /></svg>
+          <span>参考图</span>
+          <div v-if="uploadingRefs" class="uploading">上传中…</div>
+        </div>
+        <input ref="refInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp" multiple hidden @change="onReferenceFiles" />
+      </div>
+
       <textarea
+        ref="promptInput"
         v-model="form.prompt"
         class="prompt"
         rows="2"
         maxlength="5000"
-        :placeholder="form.mode === 'T2V' ? '描述你想生成的视频：主体、动作、场景、光线、镜头…' : '描述画面要怎么动：人物动作、镜头运动、环境变化…（可选）'"
+        :placeholder="placeholder"
         @focus="focused = true"
         @blur="focused = false"
         @keydown.ctrl.enter.prevent="submit"
@@ -40,25 +67,35 @@
 
     <div class="bar">
       <div class="controls">
+        <PillSelect v-model="form.mode" :options="modeOptions" title="生成方式">
+          <template #icon>
+            <svg v-if="form.mode === 'T2V'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
+            <svg v-else-if="form.mode === 'I2V'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="13" height="14" rx="2.5" /><path d="m16 10 5-3v10l-5-3" /></svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-8 9" /></svg>
+          </template>
+        </PillSelect>
         <PillSelect v-model="form.provider" :options="providerOptions" title="厂商" placeholder="暂无可用厂商">
           <template #icon>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 18a4.5 4.5 0 0 1-.4-9 6 6 0 0 1 11.6 1.6A3.8 3.8 0 0 1 17.5 18z" /></svg>
           </template>
         </PillSelect>
-        <PillSelect v-model="form.mode" :options="modeOptions" title="生成方式">
-          <template #icon>
-            <svg v-if="form.mode === 'T2V'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
-            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-8 9" /></svg>
-          </template>
-        </PillSelect>
-        <PillSelect v-model="form.modelCode" :options="modelOptions" title="模型">
+        <PillSelect v-model="form.modelCode" :options="modelOptions" title="模型" placeholder="暂无模型">
           <template #icon>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
           </template>
         </PillSelect>
-        <PillSelect v-model="form.resolution" :options="resolutionOptions" title="分辨率" />
-        <PillSelect v-if="form.mode === 'T2V' && ratioOptions.length" v-model="form.ratio" :options="ratioOptions" title="画幅" />
-        <PillSelect v-model="form.duration" :options="durationOptions" title="时长" />
+
+        <!-- 视频参数 -->
+        <template v-if="!isImage">
+          <PillSelect v-model="form.resolution" :options="resolutionOptions" title="分辨率" />
+          <PillSelect v-if="ratioOptions.length" v-model="form.ratio" :options="ratioOptions" title="画幅" />
+          <PillSelect v-model="form.duration" :options="durationOptions" title="时长" />
+        </template>
+        <!-- 图片参数 -->
+        <template v-else>
+          <PillSelect v-model="form.imageSize" :options="imageSizeOptions" title="清晰度" />
+          <PillSelect v-model="form.imageRatio" :options="imageRatioOptions" title="画幅" />
+        </template>
 
         <button
           type="button"
@@ -72,7 +109,7 @@
           千问润色
         </button>
 
-        <div ref="settingsRoot" class="settings">
+        <div v-if="!isImage" ref="settingsRoot" class="settings">
           <button type="button" class="chip icon" :class="{ on: settingsOpen }" title="高级设置" @click="settingsOpen = !settingsOpen">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
           </button>
@@ -112,129 +149,228 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, nextTick, reactive, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import PillSelect from './PillSelect.vue'
 import { uploadImage } from '@/api'
 import { money } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
-  /** 厂商列表：[{ code, name, available, mockFallback, modelCount }] */
+  /** 视频厂商：[{ code, name, available, mockFallback, modelCount }] */
   providers: { type: Array, default: () => [] },
+  /** 视频模型 */
   models: { type: Array, default: () => [] },
+  /** 文生图厂商 */
+  imageProviders: { type: Array, default: () => [] },
+  /** 文生图模型 */
+  imageModels: { type: Array, default: () => [] },
   status: { type: Object, default: () => ({}) },
   submitting: Boolean
 })
+/** submit 事件：{ kind: 'video' | 'image', payload } */
 const emit = defineEmits(['submit'])
 const toast = useToast()
 
 const modes = [
   { value: 'T2V', label: '文生视频', hint: '输入文字描述生成视频' },
-  { value: 'I2V', label: '图生视频', hint: '上传首帧图片，让画面动起来' }
+  { value: 'I2V', label: '图生视频', hint: '上传首帧图片，让画面动起来' },
+  { value: 'T2I', label: '文生图', hint: '生成图片，可再用作视频首帧' }
 ]
 
 const form = reactive({
-  provider: '',
   mode: 'T2V',
+  provider: '',
   modelCode: '',
   prompt: '',
+  enhancePrompt: false,
+  // 视频
   negativePrompt: '',
   imageUrl: '',
   imagePreview: '',
   resolution: '720P',
   ratio: '16:9',
   duration: 5,
-  enhancePrompt: false,
   promptExtend: true,
   watermark: false,
   audio: true,
-  seed: null
+  seed: null,
+  // 图片
+  imageSize: '1K',
+  imageRatio: '1:1',
+  references: []
 })
 const focused = ref(false)
+const promptInput = ref(null)
 
+const isImage = computed(() => form.mode === 'T2I')
+const placeholder = computed(() => ({
+  T2V: '描述你想生成的视频：主体、动作、场景、光线、镜头…',
+  I2V: '描述画面要怎么动：人物动作、镜头运动、环境变化…（可选）',
+  T2I: '描述你想生成的图片：主体、外观、场景、构图、光线、风格…'
+})[form.mode])
+
+/** 视频模型支持的生成方式（一个模型可同时支持 T2V、I2V） */
+function supportsMode(m, mode) {
+  return (m.modes?.length ? m.modes : [m.mode]).includes(mode)
+}
+
+/** 视频单价文字：美元计价时附带折合人民币 */
+function videoPriceText(m, r) {
+  const cny = m.pricesCny?.[r]
+  if (cny == null) return '未配置单价'
+  if (m.currency === 'USD') return `$${Number(m.prices[r]).toFixed(3)}（≈¥${Number(cny).toFixed(2)}）/ 秒`
+  return `¥${Number(cny).toFixed(2)} / 秒`
+}
+
+/** 只列出有可用模型的生成方式 */
+const modeOptions = computed(() =>
+  modes.filter((m) => (m.value === 'T2I' ? props.imageModels.length > 0 : props.models.some((x) => supportsMode(x, m.value))))
+)
+
+/** 当前生成方式可选的厂商：视频只列出有该方式模型的厂商 */
+const activeProviders = computed(() =>
+  isImage.value
+    ? props.imageProviders
+    : props.providers.filter((p) => props.models.some((m) => m.provider === p.code && supportsMode(m, form.mode)))
+)
 const providerOptions = computed(() =>
-  props.providers.map((p) => ({
+  activeProviders.value.map((p) => ({
     value: p.code,
     label: p.name,
     hint: `${p.modelCount} 个模型` + (p.available ? '' : p.mockFallback ? ' · 未配置 Key，将用 Mock 模拟' : ' · 未配置 Key')
   }))
 )
-/** 所选厂商下的模型 */
-const providerModels = computed(() => props.models.filter((m) => m.provider === form.provider))
-/** 只列出所选厂商有模型的生成方式 */
-const modeOptions = computed(() => modes.filter((m) => providerModels.value.some((x) => x.mode === m.value)))
-const modeModels = computed(() => providerModels.value.filter((m) => m.mode === form.mode))
-const currentModel = computed(() => props.models.find((m) => m.modelCode === form.modelCode))
+
+/** 当前生成方式 + 厂商下的模型 */
+const modeModels = computed(() =>
+  isImage.value
+    ? props.imageModels.filter((m) => m.provider === form.provider)
+    : props.models.filter((m) => m.provider === form.provider && supportsMode(m, form.mode))
+)
+const currentModel = computed(() => modeModels.value.find((m) => m.modelCode === form.modelCode))
+
+function imagePriceText(m, size) {
+  const cny = m.pricesCny?.[size]
+  if (cny == null) return '未配置单价'
+  if (m.currency === 'USD') return `$${Number(m.prices[size]).toFixed(3)}（≈¥${Number(cny).toFixed(2)}）/ 张`
+  return `¥${Number(cny).toFixed(2)} / 张`
+}
 
 const modelOptions = computed(() =>
   modeModels.value.map((m) => ({
     value: m.modelCode,
     label: m.displayName,
-    hint: Object.entries(m.prices).map(([r, p]) => `${r} ¥${Number(p).toFixed(2)}/秒`).join(' · ')
+    hint: isImage.value
+      ? m.sizes.map((s) => `${s} ${imagePriceText(m, s)}`).join(' · ')
+      : m.resolutions.map((r) => `${r} ${videoPriceText(m, r)}`).join(' · ')
   }))
 )
+
+// ---------- 视频参数 ----------
 const resolutionOptions = computed(() =>
   (currentModel.value?.resolutions || []).map((r) => ({
     value: r,
     label: r,
-    hint: currentModel.value.prices[r] != null ? `¥${Number(currentModel.value.prices[r]).toFixed(2)} / 秒` : '未配置单价'
+    hint: videoPriceText(currentModel.value, r)
   }))
 )
-const ratioOptions = computed(() => (currentModel.value?.ratios || []).map((r) => ({ value: r, label: r })))
+const ratioOptions = computed(() => (isImage.value ? [] : currentModel.value?.ratios || []).map((r) => ({ value: r, label: r })))
 const durationOptions = computed(() => {
   const m = currentModel.value
-  if (!m) return []
+  if (!m || isImage.value) return []
   const list = []
-  for (let s = m.minDuration; s <= m.maxDuration; s++) list.push({ value: s, label: `${s} 秒` })
+  const max = maxDuration(m)
+  for (let s = m.minDuration; s <= max; s++) list.push({ value: s, label: `${s} 秒` })
   return list
 })
 
+/** 图生视频可能有更短的时长上限（如 Gemini Omni 带首帧最长 10 秒） */
+function maxDuration(m) {
+  return form.mode === 'I2V' && m.maxDurationI2v ? Math.min(m.maxDuration, m.maxDurationI2v) : m.maxDuration
+}
+
+// ---------- 图片参数 ----------
+const imageSizeOptions = computed(() =>
+  (isImage.value ? currentModel.value?.sizes || [] : []).map((s) => ({
+    value: s,
+    label: s,
+    hint: imagePriceText(currentModel.value, s)
+  }))
+)
+const imageRatioOptions = computed(() => (isImage.value ? currentModel.value?.ratios || [] : []).map((r) => ({ value: r, label: r })))
+const maxReferences = computed(() => (isImage.value ? currentModel.value?.maxReferenceImages || 0 : 0))
+
 const estimate = computed(() => {
-  const price = currentModel.value?.prices?.[form.resolution]
+  const m = currentModel.value
+  if (!m) return null
+  if (isImage.value) {
+    const price = m.pricesCny?.[form.imageSize]
+    return price == null ? null : Number(price)
+  }
+  const price = m.pricesCny?.[form.resolution]
   return price == null ? null : Number(price) * form.duration
 })
 
 const canSubmit = computed(() => {
-  if (props.submitting || uploading.value || !currentModel.value) return false
-  if (form.mode === 'T2V') return form.prompt.trim().length > 0
-  return !!form.imageUrl
+  if (props.submitting || uploading.value || uploadingRefs.value || !currentModel.value) return false
+  if (form.mode === 'I2V') return !!form.imageUrl
+  return form.prompt.trim().length > 0
 })
 
-// 厂商列表加载后默认选第一个
+// 切换生成方式 / 列表变化时：厂商不可用就换成第一个，模型不在列表里就换成第一个
 watch(
-  () => props.providers,
-  (list) => {
-    if (!list.some((p) => p.code === form.provider)) form.provider = list[0]?.code || ''
-  },
-  { immediate: true }
-)
-// 切换厂商 / 模式时：模式不在该厂商支持的范围内就换成第一个，模型不在列表里就换成第一个
-watch(
-  () => [form.provider, form.mode, props.models],
+  () => [form.mode, props.providers, props.imageProviders, props.models, props.imageModels],
   () => {
     if (modeOptions.value.length && !modeOptions.value.some((m) => m.value === form.mode)) {
       form.mode = modeOptions.value[0].value
     }
+    if (!activeProviders.value.some((p) => p.code === form.provider)) {
+      form.provider = activeProviders.value[0]?.code || ''
+    }
+  },
+  { immediate: true }
+)
+watch(
+  () => [form.provider, form.mode, modeModels.value],
+  () => {
     if (!modeModels.value.some((m) => m.modelCode === form.modelCode)) {
       form.modelCode = modeModels.value[0]?.modelCode || ''
     }
   },
   { immediate: true }
 )
+// 切换模型时，把参数收敛到模型支持的范围
 watch(currentModel, (m) => {
   if (!m) return
+  if (isImage.value) {
+    if (!m.sizes.includes(form.imageSize)) form.imageSize = m.sizes.includes('1K') ? '1K' : m.sizes[0]
+    if (!m.ratios.includes(form.imageRatio)) form.imageRatio = m.ratios[0]
+    if (form.references.length > (m.maxReferenceImages || 0)) form.references.splice(m.maxReferenceImages || 0)
+    return
+  }
   if (!m.resolutions.includes(form.resolution)) {
     form.resolution = m.resolutions.includes('720P') ? '720P' : m.resolutions[0]
   }
   if (m.ratios.length && !m.ratios.includes(form.ratio)) form.ratio = m.ratios[0]
-  if (form.duration < m.minDuration || form.duration > m.maxDuration) form.duration = m.defaultDuration
+  if (form.duration < m.minDuration || form.duration > maxDuration(m)) form.duration = Math.min(m.defaultDuration, maxDuration(m))
 })
 
-// ---------- 首帧图片 ----------
+// ---------- 首帧图片（图生视频） ----------
 const fileInput = ref(null)
 const uploading = ref(false)
 const dragging = ref(false)
 
+function checkImageFile(file) {
+  if (!/^image\/(png|jpe?g|webp|bmp)$/.test(file.type)) {
+    toast.error('仅支持 JPG / PNG / WEBP / BMP 图片')
+    return false
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error('图片不能超过 10MB')
+    return false
+  }
+  return true
+}
 function pickImage() {
   if (!form.imagePreview) fileInput.value?.click()
 }
@@ -249,14 +385,7 @@ function onFile(e) {
   e.target.value = ''
 }
 async function handleFile(file) {
-  if (!/^image\/(png|jpe?g|webp|bmp)$/.test(file.type)) {
-    toast.error('仅支持 JPG / PNG / WEBP / BMP 图片')
-    return
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    toast.error('图片不能超过 10MB')
-    return
-  }
+  if (!checkImageFile(file)) return
   form.imagePreview = URL.createObjectURL(file)
   uploading.value = true
   try {
@@ -270,9 +399,43 @@ async function handleFile(file) {
   }
 }
 function clearImage() {
-  if (form.imagePreview) URL.revokeObjectURL(form.imagePreview)
+  if (form.imagePreview?.startsWith('blob:')) URL.revokeObjectURL(form.imagePreview)
   form.imagePreview = ''
   form.imageUrl = ''
+}
+
+// ---------- 参考图（文生图） ----------
+const refInput = ref(null)
+const uploadingRefs = ref(false)
+
+function onReferenceFiles(e) {
+  addReferences([...(e.target.files || [])])
+  e.target.value = ''
+}
+function onDropReferences(e) {
+  dragging.value = false
+  addReferences([...(e.dataTransfer.files || [])])
+}
+async function addReferences(files) {
+  const room = maxReferences.value - form.references.length
+  if (files.length > room) toast.info(`最多 ${maxReferences.value} 张参考图，多出的已忽略`)
+  uploadingRefs.value = true
+  try {
+    for (const file of files.slice(0, Math.max(0, room))) {
+      if (!checkImageFile(file)) continue
+      try {
+        const res = await uploadImage(file)
+        form.references.push({ url: res.url, preview: res.url })
+      } catch (e) {
+        toast.error('上传失败：' + e.message)
+      }
+    }
+  } finally {
+    uploadingRefs.value = false
+  }
+}
+function removeReference(i) {
+  form.references.splice(i, 1)
 }
 
 // ---------- 高级设置弹层 ----------
@@ -286,28 +449,45 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 
 function submit() {
   if (!canSubmit.value) return
+  if (isImage.value) {
+    emit('submit', {
+      kind: 'image',
+      payload: {
+        modelCode: form.modelCode,
+        prompt: form.prompt.trim(),
+        imageSize: form.imageSize,
+        aspectRatio: form.imageRatio,
+        referenceImages: form.references.map((r) => r.url),
+        enhancePrompt: form.enhancePrompt
+      }
+    })
+    return
+  }
   const m = currentModel.value
   emit('submit', {
-    modelCode: form.modelCode,
-    prompt: form.prompt.trim() || null,
-    negativePrompt: form.negativePrompt.trim() || null,
-    imageUrl: form.mode === 'I2V' ? form.imageUrl : null,
-    resolution: form.resolution,
-    ratio: form.mode === 'T2V' ? form.ratio : null,
-    duration: form.duration,
-    enhancePrompt: form.enhancePrompt,
-    promptExtend: form.promptExtend,
-    watermark: form.watermark,
-    audio: m.supportsAudio ? form.audio : null,
-    seed: form.seed === '' || form.seed === null ? null : Number(form.seed)
+    kind: 'video',
+    payload: {
+      modelCode: form.modelCode,
+      prompt: form.prompt.trim() || null,
+      negativePrompt: form.negativePrompt.trim() || null,
+      imageUrl: form.mode === 'I2V' ? form.imageUrl : null,
+      resolution: form.resolution,
+      ratio: form.mode === 'T2V' || ratioOptions.value.length ? form.ratio : null,
+      duration: form.duration,
+      enhancePrompt: form.enhancePrompt,
+      promptExtend: form.promptExtend,
+      watermark: form.watermark,
+      audio: m.supportsAudio ? form.audio : null,
+      seed: form.seed === '' || form.seed === null ? null : Number(form.seed)
+    }
   })
 }
 
-/** 用历史任务的参数填充（"复用"） */
+/** 用历史视频任务的参数填充（"复用"） */
 function reuse(task) {
   const model = props.models.find((m) => m.modelCode === task.modelCode)
-  if (model) form.provider = model.provider
   form.mode = task.mode
+  if (model) form.provider = model.provider
   form.modelCode = task.modelCode
   form.prompt = task.prompt || ''
   form.negativePrompt = task.negativePrompt || ''
@@ -320,11 +500,33 @@ function reuse(task) {
   }
 }
 
+/** 用历史图片任务的参数填充 */
+function reuseImage(task) {
+  const model = props.imageModels.find((m) => m.modelCode === task.modelCode)
+  form.mode = 'T2I'
+  if (model) form.provider = model.provider
+  form.modelCode = task.modelCode
+  form.prompt = task.prompt || ''
+  form.imageSize = task.imageSize
+  form.imageRatio = task.aspectRatio
+  form.references = (task.referenceImages || []).map((url) => ({ url, preview: url }))
+}
+
+/** 把生成的图片作为首帧，切换到图生视频 */
+async function useAsFirstFrame(url) {
+  form.mode = 'I2V'
+  form.imageUrl = url
+  form.imagePreview = url
+  form.prompt = ''
+  await nextTick()
+  promptInput.value?.focus()
+}
+
 function resetPrompt() {
   form.prompt = ''
 }
 
-defineExpose({ reuse, resetPrompt })
+defineExpose({ reuse, reuseImage, useAsFirstFrame, resetPrompt })
 </script>
 
 <style scoped>
@@ -589,5 +791,24 @@ defineExpose({ reuse, resetPrompt })
   .estimate {
     display: none;
   }
+}
+/* 文生图参考图：小尺寸缩略图 + 添加按钮 */
+.refs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 50%;
+}
+.image-slot.small {
+  width: 56px;
+  height: 56px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+}
+.image-slot.small .remove {
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
 }
 </style>

@@ -170,9 +170,15 @@ public class VideoTaskWorker {
         VideoCostBO videoCost = costService.calcVideoCost(model, task.getResolution(), billedSeconds);
         BigDecimal llmCost = task.getLlmCost() == null ? BigDecimal.ZERO : task.getLlmCost();
 
+        // 厂商直接返回视频内容（如 Gemini Omni）时，立即保存到本地
+        if (r.getVideoData() != null) {
+            update.setLocalVideoPath(fileStorageService.saveVideoBytes(task.getId(), r.getVideoData()));
+        }
+
         update.setStatus(TaskStatus.SUCCEEDED.name());
         update.setRemoteVideoUrl(r.getVideoUrl());
         update.setBilledDuration(billedSeconds);
+        update.setCurrency(videoCost.getCurrency());
         update.setUnitPrice(videoCost.getUnitPrice());
         update.setVideoCost(videoCost.getCost());
         update.setTotalCost(videoCost.getCost().add(llmCost).setScale(4, RoundingMode.HALF_UP));
@@ -182,7 +188,7 @@ public class VideoTaskWorker {
         videoTaskMapper.updateById(update);
         log.info("视频生成完成 id={} 耗时={}ms 费用={}元", task.getId(), update.getTotalElapsedMs(), update.getTotalCost());
 
-        if (properties.getStorage().isDownloadVideo()) {
+        if (properties.getStorage().isDownloadVideo() && r.getVideoData() == null) {
             fileStorageService.downloadVideoAsync(task.getId(), r.getVideoUrl()).thenAccept(path -> {
                 if (path != null) {
                     VideoTask u = new VideoTask();

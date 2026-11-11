@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 public enum VideoProvider {
     /** 阿里云百炼（通义万相） */
     DASHSCOPE("阿里云百炼"),
+    /** Google Gemini（Gemini Omni Flash） */
+    GEMINI("Google Gemini"),
     /** 本地模拟，不产生费用 */
     MOCK("本地模拟");
 

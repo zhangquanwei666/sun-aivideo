@@ -9,6 +9,7 @@ import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.vo.ModelConfigVO;
 import com.sun.aivideo.model.vo.ModelListVO;
 import com.sun.aivideo.model.vo.ProviderVO;
+import com.sun.aivideo.service.CostService;
 import com.sun.aivideo.service.ModelConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
 
     private final ModelConfigMapper modelConfigMapper;
     private final VideoGenerationStrategyFactory videoStrategyFactory;
+    private final CostService costService;
 
     @Override
     public ModelListVO listForSelection() {
@@ -36,7 +38,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                     }
                     return supported;
                 })
-                .map(ModelConfigConverter::toVO)
+                .map(m -> ModelConfigConverter.toVO(m, costService::toCny))
                 .toList();
 
         // 按模型出现顺序汇总厂商，保证排序与 sort_order 一致

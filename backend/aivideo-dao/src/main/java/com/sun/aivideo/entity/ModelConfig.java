@@ -21,7 +21,7 @@ public class ModelConfig {
     private String displayName;
     /** 厂商：DASHSCOPE / MOCK */
     private String provider;
-    /** T2V 文生视频 / I2V 图生视频 */
+    /** 支持的生成方式：T2V / I2V，同时支持时逗号分隔，如 T2V,I2V */
     private String mode;
     /** 请求协议：WAN27_T2V / WAN27_I2V / WAN_LEGACY_I2V */
     private String protocol;
@@ -32,7 +32,9 @@ public class ModelConfig {
     private Integer minDuration;
     private Integer maxDuration;
     private Integer defaultDuration;
-    /** 元/秒 */
+    /** 单价的计价币种：CNY / USD */
+    private String currency;
+    /** 每秒单价（按 currency 计价），为空表示不支持该分辨率 */
     @TableField("price_480p")
     private BigDecimal price480p;
     @TableField("price_720p")

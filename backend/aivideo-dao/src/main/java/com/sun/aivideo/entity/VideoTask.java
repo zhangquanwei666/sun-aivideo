@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
@@ -46,11 +47,14 @@ public class VideoTask {
     private String errorCode;
     private String errorMessage;
 
-    // ---------- 费用（元） ----------
+    // ---------- 费用（videoCost / totalCost 为人民币） ----------
     /** 计费时长（秒） */
     private Integer billedDuration;
-    /** 视频单价（元/秒） */
+    /** 单价的计价币种：CNY / USD */
+    private String currency;
+    /** 视频单价（按 currency，每秒） */
     private BigDecimal unitPrice;
+    /** 视频费用（人民币） */
     private BigDecimal videoCost;
     private Integer llmInputTokens;
     private Integer llmOutputTokens;
@@ -70,6 +74,16 @@ public class VideoTask {
     private LocalDateTime providerScheduledTime;
     private LocalDateTime providerEndTime;
     private LocalDateTime finishedAt;
+
+    // ---------- 逻辑删除 ----------
+    /**
+     * 是否已删除：0 正常 / 1 已删除。
+     * MyBatis-Plus 的 BaseMapper 方法（selectById、updateById 等）会自动带上 deleted = 0 条件；
+     * XML 中的自定义 SQL 需要自己写过滤条件。
+     */
+    @TableLogic(value = "0", delval = "1")
+    private Boolean deleted;
+    private LocalDateTime deletedAt;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
