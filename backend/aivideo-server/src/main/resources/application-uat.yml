@@ -1,22 +1,15 @@
-# UAT 测试环境：阿里云 RDS MySQL
+# UAT 测试环境（也是本地开发环境）：阿里云 RDS MySQL
+# 表结构与初始数据请手动执行：先 backend/sql/ddl.sql（建表），再 backend/sql/dml.sql（初始数据）
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST:rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:aivideo}
-    # 密码通过环境变量 MYSQL_PASSWORD 注入，XXXX 仅为占位
     password: ${MYSQL_PASSWORD:XXXX}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 10000
-  sql:
-    init:
-      # 启动时自动建表（CREATE TABLE IF NOT EXISTS）并插入初始模型数据（INSERT IGNORE），不覆盖已有数据
-      mode: always
-      encoding: UTF-8
-      schema-locations: classpath:db/schema-mysql.sql
-      data-locations: classpath:db/data.sql
 
 aivideo:
   storage:

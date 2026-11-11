@@ -1,32 +1,36 @@
 <template>
   <div class="generate">
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">生成视频</h1>
-        <p class="page-sub">共 {{ total }} 条 · 累计花费 <span class="num">{{ money(stats?.totalCost) }}</span></p>
-      </div>
-      <div v-if="status.mockMode" class="badge warning" title="在后端配置 DASHSCOPE_API_KEY 后即可真实调用百炼">
-        Mock 模式 · 不产生真实费用
-      </div>
-    </header>
-
     <section class="feed">
       <div v-if="loading && !tasks.length" class="empty">加载中…</div>
-      <div v-else-if="!tasks.length" class="intro">
-        <h2>用一句话生成你的第一个视频</h2>
-        <p>选择模型、分辨率和时长后点击生成。每条视频都会记录实际费用和各阶段耗时。</p>
+
+      <div v-else-if="!tasks.length" class="hero">
+        <h1 class="hero-title"><span class="grad-text">想生成什么样的视频？</span></h1>
+        <p class="hero-sub">在下方描述画面，选好模型、分辨率和时长后生成。每条视频都会记录实际费用和各阶段耗时。</p>
         <div class="ideas">
-          <button v-for="idea in ideas" :key="idea" class="idea" @click="composer?.reuse({ mode: 'T2V', modelCode: defaultT2V, prompt: idea, resolution: '720P', ratio: '16:9', duration: 5 })">
-            {{ idea }}
+          <button v-for="idea in ideas" :key="idea.text" class="idea" @click="composer?.reuse({ mode: 'T2V', modelCode: defaultT2V, prompt: idea.text, resolution: '720P', ratio: '16:9', duration: 5 })">
+            <span class="idea-icon">{{ idea.icon }}</span>
+            <span>{{ idea.text }}</span>
           </button>
         </div>
       </div>
-      <div v-else class="grid">
-        <VideoCard v-for="t in tasks" :key="t.id" :task="t" :now="now" @open="openTask" />
-      </div>
-      <div v-if="tasks.length < total" class="more">
-        <button class="btn" :disabled="loading" @click="loadMore">{{ loading ? '加载中…' : '加载更多' }}</button>
-      </div>
+
+      <template v-else>
+        <header class="feed-head">
+          <div>
+            <h1 class="page-title">生成视频</h1>
+            <p class="page-sub">共 {{ total }} 条 · 累计花费 <span class="num">{{ money(stats?.totalCost) }}</span></p>
+          </div>
+          <span v-if="status.mockMode" class="badge warning" title="在后端配置 DASHSCOPE_API_KEY 后即可真实调用百炼">
+            Mock 模式 · 不产生真实费用
+          </span>
+        </header>
+        <div class="grid">
+          <VideoCard v-for="t in tasks" :key="t.id" :task="t" :now="now" @open="openTask" />
+        </div>
+        <div v-if="tasks.length < total" class="more">
+          <button class="btn" :disabled="loading" @click="loadMore">{{ loading ? '加载中…' : '加载更多' }}</button>
+        </div>
+      </template>
     </section>
 
     <div class="composer-dock">
@@ -68,9 +72,9 @@ const activeTask = computed(() => tasks.value.find((t) => t.id === activeId.valu
 const defaultT2V = computed(() => models.value.find((m) => m.mode === 'T2V')?.modelCode)
 
 const ideas = [
-  '雨夜的霓虹街头，一只橘猫踩着水洼奔跑，镜头低角度跟随，电影感',
-  '清晨的海边灯塔，海浪拍打礁石，航拍镜头缓慢推进',
-  '一杯咖啡上方升起热气，微距特写，暖色调，浅景深'
+  { icon: '城市', text: '雨夜的霓虹街头，一只橘猫踩着水洼奔跑，镜头低角度跟随，电影感' },
+  { icon: '风景', text: '清晨的海边灯塔，海浪拍打礁石，航拍镜头缓慢推进' },
+  { icon: '特写', text: '一杯咖啡上方升起热气，微距特写，暖色调，浅景深' }
 ]
 
 async function loadPage(reset = false) {
@@ -168,56 +172,91 @@ onBeforeUnmount(() => clearInterval(timer))
 .feed {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 32px 24px;
+  padding: 8px 40px 32px;
   min-height: 0;
+}
+.feed-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1440px;
+  margin: 12px auto 24px;
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 28px 20px;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 .more {
   display: flex;
   justify-content: center;
-  padding: 24px 0 8px;
+  padding: 32px 0 8px;
 }
-.intro {
-  max-width: 640px;
-  margin: 10vh auto 0;
+
+/* 空状态：渐变大标题 + 灵感卡片 */
+.hero {
+  max-width: 760px;
+  margin: 12vh auto 0;
   text-align: center;
 }
-.intro h2 {
-  margin: 0 0 8px;
-  font-size: 26px;
-  font-weight: 600;
+.hero-title {
+  margin: 0 0 12px;
+  font-size: 44px;
+  font-weight: 400;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
-.intro p {
-  margin: 0 0 24px;
+.hero-sub {
+  margin: 0 auto 36px;
+  max-width: 560px;
   color: var(--muted);
+  font-size: 15px;
 }
 .ideas {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 .idea {
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  min-height: 120px;
+  border-radius: var(--radius-lg);
+  border: 0;
+  background: var(--surface-2);
   color: var(--text-2);
   text-align: left;
-  transition: all 0.15s;
+  font-size: 14px;
+  line-height: 1.55;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 .idea:hover {
-  border-color: var(--border-strong);
+  background: var(--surface-3);
   color: var(--text);
-  background: var(--surface-2);
+  transform: translateY(-2px);
 }
+.idea-icon {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+
+/* 底部悬浮输入框 */
 .composer-dock {
   flex: none;
-  padding: 0 32px 20px;
+  padding: 0 40px 24px;
   position: relative;
 }
 .composer-dock::before {
@@ -226,7 +265,7 @@ onBeforeUnmount(() => clearInterval(timer))
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 32px;
+  height: 48px;
   background: linear-gradient(to bottom, transparent, var(--bg));
   pointer-events: none;
 }
@@ -236,13 +275,25 @@ onBeforeUnmount(() => clearInterval(timer))
 }
 @media (max-width: 720px) {
   .feed {
-    padding: 16px;
+    padding: 8px 16px 16px;
   }
   .composer-dock {
-    padding: 0 16px 16px;
+    padding: 0 12px 12px;
   }
   .grid {
     grid-template-columns: 1fr;
+  }
+  .hero {
+    margin-top: 6vh;
+  }
+  .hero-title {
+    font-size: 30px;
+  }
+  .ideas {
+    grid-template-columns: 1fr;
+  }
+  .idea {
+    min-height: 0;
   }
 }
 </style>

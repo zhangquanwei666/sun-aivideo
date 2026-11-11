@@ -1,4 +1,5 @@
 # PRO 生产环境：所有连接信息与密钥都必须通过环境变量注入，没配会直接启动失败
+# 表结构与初始数据请手动执行：先 backend/sql/ddl.sql（建表），再 backend/sql/dml.sql（初始数据）
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -9,10 +10,6 @@ spring:
       maximum-pool-size: 30
       minimum-idle: 5
       connection-timeout: 10000
-  sql:
-    init:
-      # 生产不自动执行 DDL，表结构变更请由 DBA 手动执行 db/schema-mysql.sql 与 db/data.sql
-      mode: never
 
 aivideo:
   cors:

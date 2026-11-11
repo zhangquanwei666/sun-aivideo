@@ -10,7 +10,7 @@ import lombok.ToString;
 @ToString(callSuper = true)
 public class SystemStatusVO extends BaseResponse {
 
-    /** 当前环境：local / uat / pro */
+    /** 当前环境：uat / pro */
     private String env;
 
     /** 未配置 API Key，视频生成走 Mock */

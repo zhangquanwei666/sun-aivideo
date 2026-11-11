@@ -1,26 +1,38 @@
+/* ============================================================
+   设计令牌：深灰色调 + 蓝紫渐变点缀（Material 3 暗色风格）
+   ============================================================ */
 :root {
-  --bg: #0b0b0c;
-  --surface: #121214;
-  --surface-2: #19191c;
-  --surface-3: #222226;
-  --border: #242428;
-  --border-strong: #34343a;
-  --text: #ededee;
-  --text-2: #b4b4ba;
-  --muted: #85858d;
-  --faint: #55555c;
-  --primary: #ffffff;
-  --primary-text: #0b0b0c;
-  --success: #3ecf8e;
-  --warning: #f5a524;
-  --danger: #f2555a;
-  --info: #7aa2ff;
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 18px;
-  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-strong);
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  --bg: #131314;
+  --surface: #1b1c1d;
+  --surface-2: #1e1f20;
+  --surface-3: #282a2c;
+  --surface-4: #333537;
+  --border: #2a2b2d;
+  --border-strong: #444746;
+
+  --text: #e3e3e3;
+  --text-2: #c4c7c5;
+  --muted: #8e918f;
+  --faint: #5f6368;
+
+  --primary: #a8c7fa;
+  --primary-text: #062e6f;
+  --accent-grad: linear-gradient(135deg, #4c8df6 0%, #8f6be8 55%, #d16ba5 100%);
+  --accent-soft: linear-gradient(135deg, rgba(76, 141, 246, 0.18), rgba(143, 107, 232, 0.18));
+
+  --success: #6dd58c;
+  --warning: #fdd663;
+  --danger: #f2b8b5;
+  --info: #a8c7fa;
+
+  --radius-sm: 12px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+  --font: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'Roboto Mono', 'SFMono-Regular', Consolas, monospace;
   color-scheme: dark;
 }
 
@@ -62,7 +74,7 @@ a {
 }
 
 ::selection {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(168, 199, 250, 0.3);
 }
 
 ::-webkit-scrollbar {
@@ -70,9 +82,9 @@ a {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2f;
+  background: #3a3b3d;
   border-radius: 10px;
-  border: 2px solid var(--bg);
+  border: 3px solid var(--bg);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -82,24 +94,31 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- 按钮 ---------- */
+.grad-text {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- 按钮（全部为胶囊形） ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 20px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-2);
+  border: 0;
+  background: var(--surface-3);
   color: var(--text);
   font-weight: 500;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: background 0.15s, opacity 0.15s;
   white-space: nowrap;
 }
 .btn:hover {
-  background: var(--surface-3);
+  background: var(--surface-4);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -108,32 +127,30 @@ a {
 .btn-primary {
   background: var(--primary);
   color: var(--primary-text);
-  border-color: var(--primary);
 }
 .btn-primary:hover {
-  background: #e4e4e6;
+  background: #c2d7fb;
 }
 .btn-ghost {
   background: transparent;
-  border-color: transparent;
   color: var(--text-2);
 }
 .btn-ghost:hover {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text);
 }
 .btn-icon {
-  width: 36px;
+  width: 40px;
   padding: 0;
 }
 
-/* ---------- 状态 ---------- */
+/* ---------- 状态标签（Material 色调） ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
-  padding: 0 8px;
+  height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
@@ -147,10 +164,10 @@ a {
   border-radius: 50%;
   background: currentColor;
 }
-.badge.success { color: var(--success); background: rgba(62, 207, 142, 0.12); }
-.badge.danger { color: var(--danger); background: rgba(242, 85, 90, 0.12); }
-.badge.info { color: var(--info); background: rgba(122, 162, 255, 0.12); }
-.badge.warning { color: var(--warning); background: rgba(245, 165, 36, 0.12); }
+.badge.success { color: var(--success); background: rgba(109, 213, 140, 0.12); }
+.badge.danger { color: var(--danger); background: rgba(242, 184, 181, 0.12); }
+.badge.info { color: var(--info); background: rgba(168, 199, 250, 0.12); }
+.badge.warning { color: var(--warning); background: rgba(253, 214, 99, 0.12); }
 .badge.muted { color: var(--muted); }
 .badge.info .dot { animation: pulse 1.4s ease-in-out infinite; }
 
@@ -168,32 +185,32 @@ a {
 }
 .input {
   width: 100%;
-  height: 36px;
-  padding: 0 12px;
+  height: 40px;
+  padding: 0 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
-  background: var(--surface);
+  background: var(--surface-2);
   outline: none;
   transition: border-color 0.15s;
 }
 .input:focus {
-  border-color: #5a5a62;
+  border-color: var(--primary);
 }
 textarea.input {
   height: auto;
-  padding: 10px 12px;
+  padding: 10px 14px;
   resize: vertical;
 }
 
 .switch {
   position: relative;
-  width: 32px;
-  height: 18px;
+  width: 36px;
+  height: 20px;
   border-radius: 999px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-4);
+  border: 2px solid var(--faint);
   flex: none;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 .switch::after {
   content: '';
@@ -211,7 +228,7 @@ textarea.input {
   border-color: var(--primary);
 }
 .switch.on::after {
-  transform: translateX(14px);
+  transform: translateX(16px);
   background: var(--primary-text);
 }
 
@@ -222,27 +239,26 @@ textarea.input {
 }
 .page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 32px 0;
+  padding: 28px 40px 0;
 }
 .page-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 400;
   letter-spacing: -0.01em;
 }
 .page-sub {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
 }
 
 .empty {
@@ -253,6 +269,9 @@ textarea.input {
 
 @media (max-width: 720px) {
   .page-header {
-    padding: 18px 16px 0;
+    padding: 20px 16px 0;
+  }
+  .page-title {
+    font-size: 22px;
   }
 }

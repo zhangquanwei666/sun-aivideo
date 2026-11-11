@@ -166,46 +166,60 @@ onMounted(reload)
 </script>
 
 <style scoped>
+.page {
+  padding-bottom: 8px;
+}
+.page-header,
 .content {
-  padding: 20px 32px 40px;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.content {
+  padding: 24px 40px 40px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
 }
 .tile {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  gap: 6px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.tile:first-child {
+  background: var(--accent-soft), var(--surface-2);
+  background-blend-mode: normal;
 }
 .tile-label {
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 13px;
+  color: var(--text-2);
 }
 .tile-value {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 .tile-sub {
   font-size: 12px;
   color: var(--muted);
 }
 .block {
-  padding: 16px 0 4px;
+  padding: 20px 0 8px;
+  overflow: hidden;
 }
 .block h3 {
-  margin: 0 16px 12px;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0 24px 14px;
+  font-size: 16px;
+  font-weight: 500;
 }
 .block-head {
   display: flex;
@@ -214,7 +228,7 @@ onMounted(reload)
   padding-right: 16px;
 }
 .block-head h3 {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .table-wrap {
   overflow-x: auto;
@@ -222,28 +236,35 @@ onMounted(reload)
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 th,
 td {
-  padding: 10px 16px;
+  padding: 12px 24px;
   text-align: left;
-  border-top: 1px solid var(--border);
 }
 th {
   font-weight: 500;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
+  border-bottom: 1px solid var(--border-strong);
+}
+td {
+  border-bottom: 1px solid var(--border);
+}
+tbody tr:last-child td {
+  border-bottom: 0;
 }
 tbody tr:hover td {
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 .r {
   text-align: right;
 }
 .strong {
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text);
 }
 .muted {
   color: var(--muted);
@@ -268,8 +289,7 @@ tbody tr:hover td {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
+  padding: 14px 24px 8px;
 }
 .pager .muted {
   margin-right: auto;
@@ -278,6 +298,10 @@ tbody tr:hover td {
 @media (max-width: 720px) {
   .content {
     padding: 16px;
+  }
+  th,
+  td {
+    padding: 10px 14px;
   }
 }
 </style>

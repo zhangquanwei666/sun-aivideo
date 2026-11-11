@@ -23,7 +23,7 @@ public class EnvironmentChecker {
     private final DashScopeProperties dashScopeProperties;
     private final PromptEnhancer promptEnhancer;
 
-    /** 当前环境名：local / uat / pro */
+    /** 当前环境名：uat / pro */
     public String currentEnv() {
         String[] active = environment.getActiveProfiles();
         return active.length == 0 ? "default" : String.join(",", active);

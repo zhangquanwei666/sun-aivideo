@@ -128,28 +128,32 @@ const segments = computed(() => {
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
   z-index: 50;
   display: flex;
   justify-content: flex-end;
+  padding: 12px;
 }
 .drawer {
-  width: min(520px, 100vw);
+  width: min(540px, 100%);
   height: 100%;
-  background: var(--surface);
-  border-left: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 12px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: 18px 14px 10px 24px;
 }
 .title {
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 400;
 }
 .sub {
   font-size: 12px;
@@ -158,10 +162,10 @@ const segments = computed(() => {
 .scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px 32px;
+  padding: 8px 20px 28px;
 }
 .player {
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: #000;
   aspect-ratio: 16 / 9;
@@ -179,7 +183,7 @@ const segments = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--surface-2);
+  background: var(--surface-3);
   padding: 16px;
 }
 .err {
@@ -193,32 +197,31 @@ const segments = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 12px 0 4px;
+  margin: 14px 0 6px;
   flex-wrap: wrap;
 }
 .section {
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-}
-.section:last-child {
-  border-bottom: 0;
+  margin-top: 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
 }
 h4 {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 0 0 10px;
-  font-size: 13px;
-  font-weight: 600;
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 500;
 }
 h5 {
-  margin: 12px 0 6px;
+  margin: 14px 0 6px;
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
 }
 .total-time {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--text);
 }
 .cost-grid .row {
@@ -226,38 +229,41 @@ h5 {
   grid-template-columns: 80px 1fr auto;
   gap: 8px;
   padding: 6px 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 .formula {
   color: var(--muted);
 }
 .row.total {
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-  padding-top: 10px;
-  font-weight: 600;
+  border-top: 1px solid var(--border-strong);
+  margin-top: 6px;
+  padding-top: 12px;
+  font-weight: 500;
+}
+.row.total span:last-child {
+  font-size: 18px;
 }
 .timeline {
   display: flex;
   gap: 3px;
   height: 10px;
-  border-radius: 6px;
+  border-radius: 999px;
   overflow: hidden;
-  background: var(--surface-3);
+  background: var(--surface-4);
 }
 .seg {
   flex-basis: 0;
   min-width: 4px;
 }
-.enhance { background: #c9a0ff; }
-.queue { background: #f5a524; }
-.generate { background: #7aa2ff; }
-.other { background: #55555c; }
+.enhance { background: #c58af9; }
+.queue { background: #fdd663; }
+.generate { background: #a8c7fa; }
+.other { background: #5f6368; }
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 10px;
+  gap: 16px;
+  margin-top: 12px;
   font-size: 12px;
   color: var(--text-2);
 }
@@ -265,12 +271,12 @@ h5 {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: 50%;
   margin-right: 6px;
 }
 .text {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-2);
   white-space: pre-wrap;
   word-break: break-word;
@@ -278,9 +284,9 @@ h5 {
 .params {
   display: grid;
   grid-template-columns: 88px 1fr;
-  gap: 6px 12px;
+  gap: 8px 12px;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 .params dt {
   color: var(--muted);
@@ -290,10 +296,9 @@ h5 {
   word-break: break-all;
 }
 .first-frame {
-  margin-top: 12px;
+  margin-top: 14px;
   max-width: 160px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 .drawer-enter-active,
 .drawer-leave-active {
@@ -301,7 +306,7 @@ h5 {
 }
 .drawer-enter-active .drawer,
 .drawer-leave-active .drawer {
-  transition: transform 0.22s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 .drawer-enter-from,
 .drawer-leave-to {
@@ -309,6 +314,14 @@ h5 {
 }
 .drawer-enter-from .drawer,
 .drawer-leave-to .drawer {
-  transform: translateX(24px);
+  transform: translateX(32px);
+}
+@media (max-width: 720px) {
+  .backdrop {
+    padding: 0;
+  }
+  .drawer {
+    border-radius: 0;
+  }
 }
 </style>

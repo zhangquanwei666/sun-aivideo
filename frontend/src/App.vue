@@ -1,6 +1,6 @@
 <template>
   <div class="shell">
-    <AppSidebar :status="status" />
+    <AppHeader :status="status" />
     <main class="main">
       <router-view :status="status" />
     </main>
@@ -10,7 +10,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import AppSidebar from '@/components/AppSidebar.vue'
+import AppHeader from '@/components/AppHeader.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { getSystemStatus } from '@/api'
 
@@ -28,21 +28,11 @@ onMounted(async () => {
 <style scoped>
 .shell {
   display: flex;
+  flex-direction: column;
   height: 100%;
 }
 .main {
   flex: 1;
-  min-width: 0;
-  height: 100%;
-}
-@media (max-width: 720px) {
-  .shell {
-    flex-direction: column;
-  }
-  .main {
-    height: auto;
-    flex: 1;
-    min-height: 0;
-  }
+  min-height: 0;
 }
 </style>

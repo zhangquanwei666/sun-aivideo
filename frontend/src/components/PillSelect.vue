@@ -3,7 +3,7 @@
     <button type="button" class="pill" :disabled="disabled" @click="open = !open">
       <slot name="icon" />
       <span class="pill-label">{{ current ? current.label : placeholder }}</span>
-      <svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" /></svg>
+      <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 10 5 5 5-5" /></svg>
     </button>
     <div v-if="open" class="menu" :class="placement">
       <div v-if="title" class="menu-title">{{ title }}</div>
@@ -19,7 +19,7 @@
           <span>{{ opt.label }}</span>
           <span v-if="opt.hint" class="menu-hint">{{ opt.hint }}</span>
         </span>
-        <svg v-if="opt.value === modelValue" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5 9-10" /></svg>
+        <svg v-if="opt.value === modelValue" class="check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 5 5 9-10" /></svg>
       </button>
     </div>
   </div>
@@ -61,22 +61,26 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 10px 0 12px;
+  height: 36px;
+  padding: 0 10px 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-2);
+  border: 0;
+  background: var(--surface-3);
   color: var(--text);
   font-size: 13px;
+  font-weight: 500;
   transition: background 0.15s;
 }
 .pill:hover:not(:disabled),
 .open .pill {
-  background: var(--surface-3);
+  background: var(--surface-4);
 }
 .pill:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.pill :slotted(svg) {
+  color: var(--primary);
 }
 .pill-label {
   max-width: 180px;
@@ -94,27 +98,27 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
 .menu {
   position: absolute;
   left: 0;
-  min-width: 220px;
-  max-height: 320px;
+  min-width: 240px;
+  max-height: 340px;
   overflow-y: auto;
-  padding: 6px;
+  padding: 8px;
   border-radius: var(--radius);
-  background: var(--surface-2);
+  background: var(--surface-3);
   box-shadow: var(--shadow-pop);
   z-index: 30;
 }
 .menu.up {
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
 }
 .menu.down {
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
+  left: auto;
+  right: 0;
 }
 .menu-title {
-  padding: 6px 10px 4px;
-  font-size: 11px;
+  padding: 8px 12px 6px;
+  font-size: 12px;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .menu-item {
   width: 100%;
@@ -122,22 +126,30 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick))
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
 }
 .menu-item:hover {
-  background: var(--surface-3);
+  background: var(--surface-4);
+}
+.menu-item.active {
+  background: rgba(168, 199, 250, 0.12);
 }
 .menu-main {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 .menu-hint {
   font-size: 12px;
   color: var(--muted);
+}
+.check {
+  color: var(--primary);
+  flex: none;
 }
 </style>

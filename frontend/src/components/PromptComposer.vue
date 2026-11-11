@@ -1,25 +1,11 @@
 <template>
-  <form class="composer" @submit.prevent="submit">
-    <div class="mode-tabs" role="tablist">
-      <button
-        v-for="m in modes"
-        :key="m.value"
-        type="button"
-        role="tab"
-        class="mode-tab"
-        :class="{ active: form.mode === m.value }"
-        :disabled="!models.some((x) => x.mode === m.value)"
-        @click="form.mode = m.value"
-      >
-        {{ m.label }}
-      </button>
-    </div>
-
-    <div class="body">
+  <form class="composer" :class="{ focused }" @submit.prevent="submit">
+    <div class="input-row">
       <div
         v-if="form.mode === 'I2V'"
         class="image-slot"
         :class="{ dragging, filled: !!form.imagePreview }"
+        :title="form.imagePreview ? '' : '上传首帧图片（JPG / PNG / WEBP / BMP，10MB 以内）'"
         @click="pickImage"
         @dragover.prevent="dragging = true"
         @dragleave.prevent="dragging = false"
@@ -28,12 +14,12 @@
         <template v-if="form.imagePreview">
           <img :src="form.imagePreview" alt="首帧图片" />
           <button type="button" class="remove" title="移除图片" @click.stop="clearImage">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </template>
         <template v-else>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="9" cy="9" r="2" /><path d="m21 15-5-5L5 21" /></svg>
-          <span>首帧图片</span>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" /></svg>
+          <span>首帧</span>
         </template>
         <div v-if="uploading" class="uploading">上传中…</div>
         <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp" hidden @change="onFile" />
@@ -42,9 +28,11 @@
       <textarea
         v-model="form.prompt"
         class="prompt"
-        rows="3"
+        rows="2"
         maxlength="5000"
-        :placeholder="form.mode === 'T2V' ? '描述你想生成的画面：主体、动作、场景、光线、镜头…' : '描述画面要怎么动：人物动作、镜头运动、环境变化…（可选）'"
+        :placeholder="form.mode === 'T2V' ? '描述你想生成的视频：主体、动作、场景、光线、镜头…' : '描述画面要怎么动：人物动作、镜头运动、环境变化…（可选）'"
+        @focus="focused = true"
+        @blur="focused = false"
         @keydown.ctrl.enter.prevent="submit"
         @keydown.meta.enter.prevent="submit"
       />
@@ -52,9 +40,15 @@
 
     <div class="bar">
       <div class="controls">
+        <PillSelect v-model="form.mode" :options="modeOptions" title="生成方式">
+          <template #icon>
+            <svg v-if="form.mode === 'T2V'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
+            <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-8 9" /></svg>
+          </template>
+        </PillSelect>
         <PillSelect v-model="form.modelCode" :options="modelOptions" title="模型">
           <template #icon>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></svg>
           </template>
         </PillSelect>
         <PillSelect v-model="form.resolution" :options="resolutionOptions" title="分辨率" />
@@ -69,15 +63,16 @@
           :title="status.llmAvailable ? '提交前用千问扩写提示词（按 tokens 计费）' : '配置 DASHSCOPE_API_KEY 后可用'"
           @click="form.enhancePrompt = !form.enhancePrompt"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" /></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" /></svg>
           千问润色
         </button>
 
         <div ref="settingsRoot" class="settings">
           <button type="button" class="chip icon" :class="{ on: settingsOpen }" title="高级设置" @click="settingsOpen = !settingsOpen">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
           </button>
           <div v-if="settingsOpen" class="settings-pop">
+            <div class="pop-title">高级设置</div>
             <label class="field-label">反向提示词</label>
             <textarea v-model="form.negativePrompt" class="input" rows="2" maxlength="500" placeholder="不希望出现的内容，如：模糊、变形、文字" />
             <label class="field-label">随机种子（可选）</label>
@@ -102,9 +97,9 @@
         <span class="estimate num" :title="currentModel?.priceNote || ''">
           预计 <strong>{{ money(estimate) }}</strong>
         </span>
-        <button type="submit" class="btn btn-primary generate" :disabled="!canSubmit">
+        <button type="submit" class="send" :disabled="!canSubmit" title="生成（Ctrl + Enter）" aria-label="生成">
           <span v-if="submitting" class="spinner" />
-          生成
+          <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
         </button>
       </div>
     </div>
@@ -127,8 +122,8 @@ const emit = defineEmits(['submit'])
 const toast = useToast()
 
 const modes = [
-  { value: 'T2V', label: '文生视频' },
-  { value: 'I2V', label: '图生视频' }
+  { value: 'T2V', label: '文生视频', hint: '输入文字描述生成视频' },
+  { value: 'I2V', label: '图生视频', hint: '上传首帧图片，让画面动起来' }
 ]
 
 const form = reactive({
@@ -147,7 +142,10 @@ const form = reactive({
   audio: true,
   seed: null
 })
+const focused = ref(false)
 
+/** 只列出有可用模型的生成方式 */
+const modeOptions = computed(() => modes.filter((m) => props.models.some((x) => x.mode === m.value)))
 const modeModels = computed(() => props.models.filter((m) => m.mode === form.mode))
 const currentModel = computed(() => props.models.find((m) => m.modelCode === form.modelCode))
 
@@ -301,68 +299,68 @@ defineExpose({ reuse, resetPrompt })
 
 <style scoped>
 .composer {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  position: relative;
+  background: var(--surface-2);
+  border-radius: var(--radius-xl);
+  padding: 16px 16px 12px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 0 0 1px var(--border);
+  transition: box-shadow 0.2s;
 }
-.mode-tabs {
+/* 聚焦时显示一圈蓝紫渐变描边 */
+.composer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--accent-grad);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.composer.focused::before {
+  opacity: 1;
+}
+.composer.focused {
+  box-shadow: 0 8px 40px rgba(76, 141, 246, 0.18), 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.input-row {
   display: flex;
-  gap: 4px;
-  padding: 10px 12px 0;
-}
-.mode-tab {
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-.mode-tab:hover:not(:disabled) {
-  color: var(--text);
-}
-.mode-tab.active {
-  background: var(--surface-3);
-  color: var(--text);
-}
-.mode-tab:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.body {
-  display: flex;
-  gap: 12px;
-  padding: 10px 16px 4px;
+  gap: 14px;
+  align-items: flex-start;
 }
 .image-slot {
   position: relative;
   flex: none;
-  width: 92px;
-  height: 92px;
+  width: 72px;
+  height: 72px;
   border-radius: var(--radius);
-  border: 1px dashed var(--border-strong);
-  background: var(--surface-2);
-  color: var(--muted);
+  background: var(--surface-3);
+  color: var(--text-2);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 2px;
   font-size: 12px;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.15s, color 0.15s;
+  outline: 1px dashed var(--border-strong);
+  outline-offset: -1px;
+  transition: background 0.15s, outline-color 0.15s;
 }
 .image-slot:hover,
 .image-slot.dragging {
-  border-color: #6a6a72;
+  background: var(--surface-4);
+  outline-color: var(--primary);
   color: var(--text);
 }
 .image-slot.filled {
-  border-style: solid;
+  outline: none;
   cursor: default;
 }
 .image-slot img {
@@ -372,15 +370,15 @@ defineExpose({ reuse, resetPrompt })
 }
 .remove {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 4px;
+  right: 4px;
   width: 22px;
   height: 22px;
   border-radius: 50%;
   border: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.65);
   color: #fff;
 }
 .uploading {
@@ -390,62 +388,68 @@ defineExpose({ reuse, resetPrompt })
   place-items: center;
   background: rgba(0, 0, 0, 0.6);
   color: var(--text);
+  font-size: 12px;
 }
 .prompt {
   flex: 1;
-  min-height: 72px;
+  min-height: 52px;
   max-height: 220px;
   border: 0;
   outline: none;
-  resize: vertical;
+  resize: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   padding: 4px 0;
+  field-sizing: content;
 }
 .prompt::placeholder {
-  color: var(--faint);
+  color: var(--muted);
 }
+
 .bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px 12px;
+  margin-top: 12px;
   flex-wrap: wrap;
 }
 .controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong);
+  border: 0;
   background: transparent;
   color: var(--text-2);
   font-size: 13px;
-  transition: all 0.15s;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
 }
 .chip.icon {
-  width: 32px;
+  width: 36px;
   padding: 0;
   justify-content: center;
 }
 .chip:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text);
 }
 .chip.on {
-  background: var(--surface-3);
+  background: var(--accent-soft);
   color: var(--text);
-  border-color: #55555c;
+}
+.chip.on svg {
+  color: #b39af0;
 }
 .chip:disabled {
   opacity: 0.4;
@@ -456,31 +460,35 @@ defineExpose({ reuse, resetPrompt })
 }
 .settings-pop {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 0;
-  width: 300px;
-  padding: 14px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  width: 320px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
   box-shadow: var(--shadow-pop);
   z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.settings-pop .input {
+.pop-title {
+  font-size: 15px;
+  font-weight: 500;
   margin-bottom: 10px;
-  background: var(--surface);
+}
+.settings-pop .input {
+  margin-bottom: 12px;
+  background: var(--surface-2);
 }
 .toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
+  padding: 10px 0;
   cursor: pointer;
-  font-size: 13px;
-  border-top: 1px solid var(--border);
+  font-size: 14px;
 }
 .toggle-row small {
   display: block;
@@ -490,7 +498,7 @@ defineExpose({ reuse, resetPrompt })
 .actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   margin-left: auto;
 }
 .estimate {
@@ -499,18 +507,36 @@ defineExpose({ reuse, resetPrompt })
 }
 .estimate strong {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
 }
-.generate {
-  min-width: 88px;
-  height: 36px;
+.send {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: var(--accent-grad);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(110, 120, 240, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(110, 120, 240, 0.5);
+}
+.send:disabled {
+  background: var(--surface-4);
+  color: var(--faint);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 .spinner {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-  border-top-color: var(--primary-text);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin {
@@ -519,12 +545,19 @@ defineExpose({ reuse, resetPrompt })
   }
 }
 @media (max-width: 720px) {
-  .body {
-    padding: 10px 12px 4px;
+  .composer {
+    padding: 12px 12px 10px 14px;
+    border-radius: var(--radius-lg);
   }
   .image-slot {
-    width: 72px;
-    height: 72px;
+    width: 60px;
+    height: 60px;
+  }
+  .prompt {
+    font-size: 15px;
+  }
+  .estimate {
+    display: none;
   }
 }
 </style>
