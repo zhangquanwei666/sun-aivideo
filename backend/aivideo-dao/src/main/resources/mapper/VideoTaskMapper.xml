@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个 <select> 的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.VideoTaskMapper">
+
+    <!-- 表 t_video_task → 实体 VideoTask -->
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.VideoTask">
+        <id     column="id"                      property="id"/>
+        <result column="provider"                property="provider"/>
+        <result column="model_code"              property="modelCode"/>
+        <result column="mode"                    property="mode"/>
+        <result column="status"                  property="status"/>
+        <result column="prompt"                  property="prompt"/>
+        <result column="final_prompt"            property="finalPrompt"/>
+        <result column="negative_prompt"         property="negativePrompt"/>
+        <result column="image_url"               property="imageUrl"/>
+        <result column="resolution"              property="resolution"/>
+        <result column="ratio"                   property="ratio"/>
+        <result column="duration"                property="duration"/>
+        <result column="enhance_prompt"          property="enhancePrompt"/>
+        <result column="prompt_extend"           property="promptExtend"/>
+        <result column="watermark"               property="watermark"/>
+        <result column="audio"                   property="audio"/>
+        <result column="seed"                    property="seed"/>
+        <result column="provider_task_id"        property="providerTaskId"/>
+        <result column="remote_video_url"        property="remoteVideoUrl"/>
+        <result column="local_video_path"        property="localVideoPath"/>
+        <result column="error_code"              property="errorCode"/>
+        <result column="error_message"           property="errorMessage"/>
+        <result column="billed_duration"         property="billedDuration"/>
+        <result column="unit_price"              property="unitPrice"/>
+        <result column="video_cost"              property="videoCost"/>
+        <result column="llm_input_tokens"        property="llmInputTokens"/>
+        <result column="llm_output_tokens"       property="llmOutputTokens"/>
+        <result column="llm_cost"                property="llmCost"/>
+        <result column="total_cost"              property="totalCost"/>
+        <result column="enhance_ms"              property="enhanceMs"/>
+        <result column="queue_ms"                property="queueMs"/>
+        <result column="generate_ms"             property="generateMs"/>
+        <result column="total_elapsed_ms"        property="totalElapsedMs"/>
+        <result column="provider_submit_time"    property="providerSubmitTime"/>
+        <result column="provider_scheduled_time" property="providerScheduledTime"/>
+        <result column="provider_end_time"       property="providerEndTime"/>
+        <result column="finished_at"             property="finishedAt"/>
+        <result column="created_at"              property="createdAt"/>
+        <result column="updated_at"              property="updatedAt"/>
+    </resultMap>
+
+    <!-- 统计结果 → VideoStatsBO -->
+    <resultMap id="VideoStatsResultMap" type="com.sun.aivideo.dao.bo.VideoStatsBO">
+        <result column="total_count"         property="totalCount"/>
+        <result column="succeeded_count"     property="succeededCount"/>
+        <result column="failed_count"        property="failedCount"/>
+        <result column="in_progress_count"   property="inProgressCount"/>
+        <result column="total_cost"          property="totalCost"/>
+        <result column="total_video_cost"    property="totalVideoCost"/>
+        <result column="total_llm_cost"      property="totalLlmCost"/>
+        <result column="total_video_seconds" property="totalVideoSeconds"/>
+        <result column="avg_cost"            property="avgCost"/>
+        <result column="avg_elapsed_ms"      property="avgElapsedMs"/>
+    </resultMap>
+
+    <!-- 按模型统计结果 → ModelStatBO -->
+    <resultMap id="ModelStatResultMap" type="com.sun.aivideo.dao.bo.ModelStatBO">
+        <result column="model_code"          property="modelCode"/>
+        <result column="total_count"         property="totalCount"/>
+        <result column="succeeded_count"     property="succeededCount"/>
+        <result column="total_cost"          property="totalCost"/>
+        <result column="total_video_seconds" property="totalVideoSeconds"/>
+        <result column="avg_elapsed_ms"      property="avgElapsedMs"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
+        resolution, ratio, duration, enhance_prompt, prompt_extend, watermark, audio, seed,
+        provider_task_id, remote_video_url, local_video_path, error_code, error_message,
+        billed_duration, unit_price, video_cost, llm_input_tokens, llm_output_tokens, llm_cost, total_cost,
+        enhance_ms, queue_ms, generate_ms, total_elapsed_ms,
+        provider_submit_time, provider_scheduled_time, provider_end_time, finished_at, created_at, updated_at
+    </sql>
+
+    <!-- 已结束（失败/取消/超时）与进行中的状态集合 -->
+    <sql id="Failed_Status">'FAILED', 'CANCELED', 'TIMEOUT'</sql>
+    <sql id="In_Progress_Status">'SUBMITTING', 'PENDING', 'RUNNING'</sql>
+
+    <!-- VideoTaskMapper#selectTaskPage：分页查询，分页由 MyBatis-Plus 插件处理 -->
+    <select id="selectTaskPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_video_task
+        <where>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="modelCode != null and modelCode != ''">
+                AND model_code = #{modelCode}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND prompt LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- VideoTaskMapper#selectActiveTasks：需要轮询厂商的任务 -->
+    <select id="selectActiveTasks" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_video_task
+        WHERE provider_task_id IS NOT NULL
+          AND status IN
+          <foreach collection="statuses" item="s" open="(" separator="," close=")">
+              #{s}
+          </foreach>
+        ORDER BY id
+    </select>
+
+    <!-- VideoTaskMapper#selectStats：费用与耗时汇总 -->
+    <select id="selectStats" resultMap="VideoStatsResultMap">
+        SELECT COUNT(*)                                                                         AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status IN (<include refid="Failed_Status"/>) THEN 1 ELSE 0 END), 0)      AS failed_count,
+               COALESCE(SUM(CASE WHEN status IN (<include refid="In_Progress_Status"/>) THEN 1 ELSE 0 END), 0) AS in_progress_count,
+               COALESCE(SUM(total_cost), 0)                                                     AS total_cost,
+               COALESCE(SUM(video_cost), 0)                                                     AS total_video_cost,
+               COALESCE(SUM(llm_cost), 0)                                                       AS total_llm_cost,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN billed_duration ELSE 0 END), 0)  AS total_video_seconds,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                          AS avg_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
+        FROM t_video_task
+    </select>
+
+    <!-- VideoTaskMapper#selectStatsByModel：按模型分组统计 -->
+    <select id="selectStatsByModel" resultMap="ModelStatResultMap">
+        SELECT model_code,
+               COUNT(*)                                                                         AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
+               COALESCE(SUM(total_cost), 0)                                                     AS total_cost,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN billed_duration ELSE 0 END), 0)  AS total_video_seconds,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
+        FROM t_video_task
+        GROUP BY model_code
+        ORDER BY total_cost DESC
+    </select>
+
+</mapper>

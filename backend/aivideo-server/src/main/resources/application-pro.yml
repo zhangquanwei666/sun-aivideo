@@ -1,0 +1,36 @@
+# PRO 生产环境：所有连接信息与密钥都必须通过环境变量注入，没配会直接启动失败
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 10000
+  sql:
+    init:
+      # 生产不自动执行 DDL，表结构变更请由 DBA 手动执行 db/schema-mysql.sql 与 db/data.sql
+      mode: never
+
+aivideo:
+  cors:
+    # 生产一般由 Nginx 同域转发，不需要跨域；如需跨域，用 AIVIDEO_CORS_ORIGINS 配置前端域名（逗号分隔）
+    allowed-origin-patterns: ${AIVIDEO_CORS_ORIGINS:}
+  storage:
+    base-dir: ${AIVIDEO_DATA_DIR:/data/aivideo}
+  dashscope:
+    # 生产禁止 Mock：没配 DASHSCOPE_API_KEY 时启动失败
+    mock-when-no-key: false
+
+logging:
+  file:
+    name: ${AIVIDEO_LOG_FILE:/data/aivideo/logs/sun-aivideo.log}
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+  level:
+    root: info
+    com.sun.aivideo: info

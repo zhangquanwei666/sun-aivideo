@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "mvn.cmd",
+      "runtimeArgs": ["-q", "-f", "backend/pom.xml", "spring-boot:run", "-Dspring-boot.run.profiles=local"],
+      "port": 8080,
+      "autoPort": false
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "D:\\Tools\\NVM\\nvm\\v24.16.0\\node.exe",
+      "runtimeArgs": ["frontend/node_modules/vite/bin/vite.js", "frontend", "--config", "frontend/vite.config.js", "--port", "5173", "--strictPort"],
+      "port": 5173
+    }
+  ]
+}

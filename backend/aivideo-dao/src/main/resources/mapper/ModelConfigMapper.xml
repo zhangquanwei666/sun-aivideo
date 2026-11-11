@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个 <select> 的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.ModelConfigMapper">
+
+    <!-- 表 t_model_config → 实体 ModelConfig -->
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.ModelConfig">
+        <id     column="id"               property="id"/>
+        <result column="model_code"       property="modelCode"/>
+        <result column="display_name"     property="displayName"/>
+        <result column="provider"         property="provider"/>
+        <result column="mode"             property="mode"/>
+        <result column="protocol"         property="protocol"/>
+        <result column="resolutions"      property="resolutions"/>
+        <result column="ratios"           property="ratios"/>
+        <result column="min_duration"     property="minDuration"/>
+        <result column="max_duration"     property="maxDuration"/>
+        <result column="default_duration" property="defaultDuration"/>
+        <result column="price_480p"       property="price480p"/>
+        <result column="price_720p"       property="price720p"/>
+        <result column="price_1080p"      property="price1080p"/>
+        <result column="supports_audio"   property="supportsAudio"/>
+        <result column="description"      property="description"/>
+        <result column="price_note"       property="priceNote"/>
+        <result column="enabled"          property="enabled"/>
+        <result column="sort_order"       property="sortOrder"/>
+        <result column="created_at"       property="createdAt"/>
+        <result column="updated_at"       property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, model_code, display_name, provider, mode, protocol, resolutions, ratios,
+        min_duration, max_duration, default_duration, price_480p, price_720p, price_1080p,
+        supports_audio, description, price_note, enabled, sort_order, created_at, updated_at
+    </sql>
+
+    <!-- ModelConfigMapper#selectEnabledList：已启用的模型 -->
+    <select id="selectEnabledList" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_model_config
+        WHERE enabled = 1
+        ORDER BY sort_order, id
+    </select>
+
+    <!-- ModelConfigMapper#selectByModelCode：按模型编码查询 -->
+    <select id="selectByModelCode" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_model_config
+        WHERE model_code = #{modelCode}
+    </select>
+
+</mapper>
