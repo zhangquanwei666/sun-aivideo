@@ -195,7 +195,7 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 | `AIVIDEO_DATA_DIR` | 默认 `./data` | 默认 `/data/aivideo` | 上传的图片和下载的视频存放目录 |
 | `AIVIDEO_LOG_FILE` | — | 默认 `/data/aivideo/logs/sun-aivideo.log` | |
 | `AIVIDEO_CORS_ORIGINS` | — | 可选 | 跨域部署时的前端域名，逗号分隔 |
-| `SERVER_PORT` | 8080 | 8080 | |
+| `SERVER_PORT` | 18088 | 18088 | 后端端口 |
 
 pro 启动时会检查配置：没配 `DASHSCOPE_API_KEY`、数据库密码为空或仍是 `XXXX`、缺少 `MYSQL_HOST` / `MYSQL_USER` 时，直接启动失败并提示缺哪一项。
 
@@ -227,7 +227,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:5173 。`/api` 和 `/files` 会代理到 `VITE_PROXY_TARGET`（默认 `http://localhost:8080`）。
+打开 http://localhost:25173 。`/api` 和 `/files` 会代理到 `VITE_PROXY_TARGET`（默认 `http://localhost:18088`）。
 
 ### UAT 部署
 
@@ -257,8 +257,8 @@ server {
     client_max_body_size 16m;
 
     location / { try_files $uri $uri/ /index.html; }
-    location /api/   { proxy_pass http://127.0.0.1:8080; }
-    location /files/ { proxy_pass http://127.0.0.1:8080; }
+    location /api/   { proxy_pass http://127.0.0.1:18088; }
+    location /files/ { proxy_pass http://127.0.0.1:18088; }
 }
 ```
 

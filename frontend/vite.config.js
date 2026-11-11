@@ -6,7 +6,7 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root)
-  const backend = env.VITE_PROXY_TARGET || 'http://localhost:8080'
+  const backend = env.VITE_PROXY_TARGET || 'http://localhost:18088'
 
   return {
     root,
@@ -21,7 +21,9 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true
     },
     server: {
-      port: 5173,
+      // 前端开发端口；被占用时直接报错，不自动换端口
+      port: 25173,
+      strictPort: true,
       proxy: {
         '/api': { target: backend, changeOrigin: true },
         '/files': { target: backend, changeOrigin: true }

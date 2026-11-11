@@ -24,7 +24,11 @@
     </nav>
 
     <div class="status">
+      <span v-if="!connected" class="chip off" title="后端没有响应，请确认后端已启动">
+        <span class="dot" />后端未连接
+      </span>
       <span
+        v-else
         class="chip"
         :class="status.mockMode ? 'mock' : 'live'"
         :title="status.mockMode ? '未配置 DASHSCOPE_API_KEY，视频生成走 Mock，不产生真实费用' : '已连接阿里云百炼'"
@@ -46,6 +50,8 @@ const props = defineProps({ status: { type: Object, required: true } })
 
 // 优先显示后端实际环境，后端未连上时显示前端构建环境
 const envName = computed(() => props.status.env || import.meta.env.VITE_APP_ENV || '')
+// 拿到后端返回的环境信息才算连上
+const connected = computed(() => !!props.status.env)
 </script>
 
 <style scoped>
@@ -151,6 +157,9 @@ const envName = computed(() => props.status.env || import.meta.env.VITE_APP_ENV 
 }
 .chip.live {
   color: var(--success);
+}
+.chip.off {
+  color: var(--danger);
 }
 .chip.subtle svg {
   color: #b39af0;
