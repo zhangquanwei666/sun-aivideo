@@ -5,7 +5,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST:rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:aivideo}
-    password: ${MYSQL_PASSWORD:XXXX}
+    password: Zqw123456
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2

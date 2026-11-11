@@ -11,6 +11,7 @@ import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.video.model.VideoGenerateRequest;
 import com.sun.aivideo.ai.video.model.VideoSubmitResult;
 import com.sun.aivideo.ai.video.model.VideoTaskResult;
+import com.sun.aivideo.common.enums.ApiProtocol;
 import com.sun.aivideo.common.enums.VideoProvider;
 import com.sun.aivideo.common.enums.VideoTaskState;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -137,7 +139,17 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
         }
 
         ObjectNode params = root.putObject("parameters");
-        params.put("resolution", req.getResolution());
+        if (req.getProtocol() == ApiProtocol.WAN_LEGACY_T2V) {
+            // 旧版文生视频不认 resolution / ratio，只认具体像素
+            String size = legacyT2vSize(req.getResolution(), req.getRatio());
+            if (size == null) {
+                throw new AiClientException("UNSUPPORTED_SIZE",
+                        req.getModelCode() + " 不支持 " + req.getResolution() + " " + req.getRatio());
+            }
+            params.put("size", size);
+        } else {
+            params.put("resolution", req.getResolution());
+        }
         params.put("duration", req.getDuration());
         params.put("prompt_extend", Boolean.TRUE.equals(req.getPromptExtend()));
         params.put("watermark", Boolean.TRUE.equals(req.getWatermark()));
@@ -161,9 +173,26 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
                     params.put("audio", req.getAudio());
                 }
             }
+            default -> {
+                // WAN_LEGACY_T2V 的 size 已在上面处理
+            }
         }
         return root;
     }
+
+    /**
+     * 旧版文生视频（wan2.2-t2v-plus 等）的 size：分辨率 + 画幅 → 具体像素，取自百炼「万相-文生视频 API 参考（2.1～2.6）」。
+     * 480P 只有 16:9 / 9:16 / 1:1；1080P 另有 4:3 / 3:4。不支持的组合返回 null。
+     */
+    public static String legacyT2vSize(String resolution, String ratio) {
+        String r = StringUtils.hasText(ratio) ? ratio : "16:9";
+        return LEGACY_T2V_SIZES.getOrDefault(resolution, Map.of()).get(r);
+    }
+
+    private static final Map<String, Map<String, String>> LEGACY_T2V_SIZES = Map.of(
+            "480P", Map.of("16:9", "832*480", "9:16", "480*832", "1:1", "624*624"),
+            "1080P", Map.of("16:9", "1920*1080", "9:16", "1080*1920", "1:1", "1440*1440",
+                    "4:3", "1632*1248", "3:4", "1248*1632"));
 
     /** 计费秒数：优先 usage.duration，其次 output_video_duration / video_duration */
     private Integer readBilledDuration(JsonNode usage) {

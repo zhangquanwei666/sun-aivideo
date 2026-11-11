@@ -10,7 +10,7 @@
     },
     {
       "name": "frontend",
-      "runtimeExecutable": "D:\\Tools\\NVM\\nvm\\v24.16.0\\node.exe",
+      "runtimeExecutable": "node",
       "runtimeArgs": ["frontend/node_modules/vite/bin/vite.js", "frontend", "--config", "frontend/vite.config.js", "--port", "25173", "--strictPort"],
       "port": 25173
     }

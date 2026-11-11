@@ -319,7 +319,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 }
 ```
 
-图生视频把 `modelCode` 换成 `wan2.7-i2v` / `wan2.6-i2v` / `wan2.6-i2v-flash`，再传 `imageUrl`。它可以是公网地址，也可以是上传接口返回的 `/files/...` 路径；本地路径由后端转成 base64 提交。
+图生视频把 `modelCode` 换成 `wan2.7-i2v` / `wan2.6-i2v` / `wan2.6-i2v-flash` / `wan2.2-i2v-plus` / `wan2.2-i2v-flash`，再传 `imageUrl`。它可以是公网地址，也可以是上传接口返回的 `/files/...` 路径；本地路径由后端转成 base64 提交。
 
 ## 文生图（阿里云百炼 / Google Gemini）
 
@@ -360,5 +360,19 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 
 ## 注意
 
-- 单价取自百炼华北2（北京）官方原价，不含限时优惠。`wan2.7-i2v` 和 `wan2.6-i2v-flash` 的单价还没有核实，请以百炼控制台为准并在 `t_model_config` 中修改。
+- 单价取自百炼华北2（北京）官方原价，不含限时优惠。`wan2.7-i2v`、`wan2.6-i2v-flash` 和三个万相 2.2 模型的单价还没有核实，请以百炼控制台为准并在 `t_model_config` 中修改。
+
+## 万相 2.2 低价模型
+
+用来降低视频成本，和万相 2.7 共用 `DASHSCOPE_API_KEY`。
+
+| 模型 | 生成方式 | 分辨率 | 单价（元/秒，待核实） | 5 秒 480P 约 |
+|---|---|---|---|---|
+| `wan2.2-t2v-plus` | 文生视频 | 480P / 1080P | 0.14 / 0.70 | ¥0.7 |
+| `wan2.2-i2v-plus` | 图生视频 | 480P / 1080P | 0.14 / 0.70 | ¥0.7 |
+| `wan2.2-i2v-flash` | 图生视频 | 480P / 720P / 1080P | 0.10 / 0.20 / 0.48 | ¥0.5 |
+
+- 限制：时长**固定 5 秒**、**无声**；文生视频的画幅只有 16:9 / 9:16 / 1:1。
+- 协议：文生视频是百炼旧版接口，不传 `resolution` / `ratio`，而是传 `parameters.size`（如 `832*480`），对应协议 `WAN_LEGACY_T2V`；图生视频沿用 `WAN_LEGACY_I2V`（`input.img_url` + `resolution`）。
+- 已有的库执行一次 `backend/sql/dml.sql` 即可插入这三个模型（`INSERT IGNORE`，不影响已有数据，不需要改表结构）。
 - 千问润色的单价在 `application.yml` 的 `aivideo.llm.*-price-per-million` 中配置。

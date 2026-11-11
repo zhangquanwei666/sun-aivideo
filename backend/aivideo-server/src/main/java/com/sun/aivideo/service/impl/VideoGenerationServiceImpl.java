@@ -2,6 +2,7 @@ package com.sun.aivideo.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.sun.aivideo.ai.video.strategy.DashScopeWanVideoStrategy;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.converter.VideoTaskConverter;
@@ -56,6 +57,10 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         ModelConfig model = modelConfigService.getEnabledByCode(dto.getModelCode());
         VideoMode mode = resolveMode(dto, model);
         String ratio = validate(dto, model, mode);
+        if (ApiProtocol.WAN_LEGACY_T2V.name().equals(model.getProtocol())
+                && DashScopeWanVideoStrategy.legacyT2vSize(dto.getResolution(), ratio) == null) {
+            throw new BizException(model.getDisplayName() + " 的 " + dto.getResolution() + " 不支持画幅 " + ratio);
+        }
 
         VideoTask task = new VideoTask();
         task.setProvider(videoStrategyFactory.resolveForNewTask(model.getProvider()).provider().name());
