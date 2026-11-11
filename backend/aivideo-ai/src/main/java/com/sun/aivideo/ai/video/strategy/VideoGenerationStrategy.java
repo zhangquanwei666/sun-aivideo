@@ -15,6 +15,14 @@ public interface VideoGenerationStrategy {
     /** 策略对应的厂商（工厂按此注册） */
     VideoProvider provider();
 
+    /**
+     * 当前是否可以真实调用（通常是是否配置了该厂商的 API Key）。
+     * 不可用且允许 Mock 时，新任务会自动改用 Mock。
+     */
+    default boolean available() {
+        return true;
+    }
+
     /** 创建生成任务，返回厂商任务 ID */
     VideoSubmitResult submit(VideoGenerateRequest request);
 

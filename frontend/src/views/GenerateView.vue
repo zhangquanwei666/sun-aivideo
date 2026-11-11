@@ -34,7 +34,7 @@
     </section>
 
     <div class="composer-dock">
-      <PromptComposer ref="composer" :models="models" :status="status" :submitting="submitting" @submit="onSubmit" />
+      <PromptComposer ref="composer" :providers="providers" :models="models" :status="status" :submitting="submitting" @submit="onSubmit" />
     </div>
 
     <TaskDetailDrawer :task="activeTask" @close="activeId = null" @reuse="onReuse" />
@@ -60,6 +60,7 @@ const now = useNow()
 
 const composer = ref(null)
 const models = ref([])
+const providers = ref([])
 const tasks = ref([])
 const total = ref(0)
 const pageNum = ref(1)
@@ -152,7 +153,9 @@ async function pollUnfinished() {
 
 onMounted(async () => {
   try {
-    models.value = await listModels()
+    const catalog = await listModels()
+    providers.value = catalog.providers
+    models.value = catalog.models
   } catch (e) {
     toast.error('加载模型失败：' + e.message)
   }

@@ -34,23 +34,47 @@ public class VideoGenerationStrategyFactory {
     }
 
     /**
-     * 新任务使用的策略：没有配置 API Key 且允许 Mock 时返回 Mock，否则按模型配置的厂商。
+     * 新任务实际使用的策略：
+     * <ol>
+     *     <li>所选厂商可以真实调用（已配置 Key）→ 该厂商</li>
+     *     <li>不可用但允许 Mock（aivideo.dashscope.mock-when-no-key=true）→ Mock</li>
+     *     <li>否则报错</li>
+     * </ol>
      *
-     * @param configuredProvider 模型配置中的厂商名，如 DASHSCOPE
+     * @param providerName 模型配置中的厂商名，如 DASHSCOPE
      */
-    public VideoGenerationStrategy resolveForNewTask(String configuredProvider) {
-        if (dashScopeProperties.isMockMode()) {
+    public VideoGenerationStrategy resolveForNewTask(String providerName) {
+        VideoGenerationStrategy strategy = getStrategy(providerName);
+        if (strategy.available()) {
+            return strategy;
+        }
+        if (allowMockFallback()) {
             return getStrategy(VideoProvider.MOCK);
         }
-        return getStrategy(configuredProvider);
+        throw new AiClientException("PROVIDER_NOT_CONFIGURED",
+                strategy.provider().getLabel() + " 未配置 API Key，当前环境不允许使用 Mock");
+    }
+
+    /** 厂商是否已经实现了策略（未实现的厂商不在前端展示） */
+    public boolean isSupported(String providerName) {
+        VideoProvider provider = VideoProvider.of(providerName);
+        return provider != null && provider != VideoProvider.MOCK && strategies.containsKey(provider);
+    }
+
+    /** 厂商当前能否真实调用 */
+    public boolean isAvailable(String providerName) {
+        return isSupported(providerName) && getStrategy(providerName).available();
+    }
+
+    /** 厂商不可用时是否会退回 Mock */
+    public boolean allowMockFallback() {
+        return dashScopeProperties.isMockWhenNoKey() && strategies.containsKey(VideoProvider.MOCK);
     }
 
     /** 按任务记录的厂商名获取（轮询时使用） */
     public VideoGenerationStrategy getStrategy(String providerName) {
-        VideoProvider provider;
-        try {
-            provider = VideoProvider.valueOf(providerName);
-        } catch (IllegalArgumentException | NullPointerException e) {
+        VideoProvider provider = VideoProvider.of(providerName);
+        if (provider == null) {
             throw new AiClientException("UNSUPPORTED_PROVIDER", "不支持的视频厂商：" + providerName);
         }
         return getStrategy(provider);
@@ -59,7 +83,7 @@ public class VideoGenerationStrategyFactory {
     public VideoGenerationStrategy getStrategy(VideoProvider provider) {
         VideoGenerationStrategy strategy = strategies.get(provider);
         if (strategy == null) {
-            throw new AiClientException("UNSUPPORTED_PROVIDER", "视频厂商未实现：" + provider);
+            throw new AiClientException("UNSUPPORTED_PROVIDER", "视频厂商未实现：" + provider.getLabel());
         }
         return strategy;
     }

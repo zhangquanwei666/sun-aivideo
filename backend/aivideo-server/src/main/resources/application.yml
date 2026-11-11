@@ -69,8 +69,8 @@ aivideo:
     output-price-per-million: 2.0
 
   polling:
-    # 轮询百炼任务状态的间隔（官方建议约 15 秒）
-    interval-ms: 10000
+    # 轮询百炼任务状态的间隔：15 秒（官方建议约 15 秒，任务查询接口默认限流 20 次/秒）
+    interval-ms: 15000
     # 超过该时长仍未完成的任务标记为超时
     timeout-minutes: 30
 

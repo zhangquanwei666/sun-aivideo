@@ -40,6 +40,11 @@
 
     <div class="bar">
       <div class="controls">
+        <PillSelect v-model="form.provider" :options="providerOptions" title="厂商" placeholder="暂无可用厂商">
+          <template #icon>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 18a4.5 4.5 0 0 1-.4-9 6 6 0 0 1 11.6 1.6A3.8 3.8 0 0 1 17.5 18z" /></svg>
+          </template>
+        </PillSelect>
         <PillSelect v-model="form.mode" :options="modeOptions" title="生成方式">
           <template #icon>
             <svg v-if="form.mode === 'T2V'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
@@ -114,6 +119,8 @@ import { money } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
+  /** 厂商列表：[{ code, name, available, mockFallback, modelCount }] */
+  providers: { type: Array, default: () => [] },
   models: { type: Array, default: () => [] },
   status: { type: Object, default: () => ({}) },
   submitting: Boolean
@@ -127,6 +134,7 @@ const modes = [
 ]
 
 const form = reactive({
+  provider: '',
   mode: 'T2V',
   modelCode: '',
   prompt: '',
@@ -144,9 +152,18 @@ const form = reactive({
 })
 const focused = ref(false)
 
-/** 只列出有可用模型的生成方式 */
-const modeOptions = computed(() => modes.filter((m) => props.models.some((x) => x.mode === m.value)))
-const modeModels = computed(() => props.models.filter((m) => m.mode === form.mode))
+const providerOptions = computed(() =>
+  props.providers.map((p) => ({
+    value: p.code,
+    label: p.name,
+    hint: `${p.modelCount} 个模型` + (p.available ? '' : p.mockFallback ? ' · 未配置 Key，将用 Mock 模拟' : ' · 未配置 Key')
+  }))
+)
+/** 所选厂商下的模型 */
+const providerModels = computed(() => props.models.filter((m) => m.provider === form.provider))
+/** 只列出所选厂商有模型的生成方式 */
+const modeOptions = computed(() => modes.filter((m) => providerModels.value.some((x) => x.mode === m.value)))
+const modeModels = computed(() => providerModels.value.filter((m) => m.mode === form.mode))
 const currentModel = computed(() => props.models.find((m) => m.modelCode === form.modelCode))
 
 const modelOptions = computed(() =>
@@ -183,10 +200,21 @@ const canSubmit = computed(() => {
   return !!form.imageUrl
 })
 
-// 切换模式 / 模型时，把参数收敛到模型支持的范围
+// 厂商列表加载后默认选第一个
 watch(
-  () => [form.mode, props.models],
+  () => props.providers,
+  (list) => {
+    if (!list.some((p) => p.code === form.provider)) form.provider = list[0]?.code || ''
+  },
+  { immediate: true }
+)
+// 切换厂商 / 模式时：模式不在该厂商支持的范围内就换成第一个，模型不在列表里就换成第一个
+watch(
+  () => [form.provider, form.mode, props.models],
   () => {
+    if (modeOptions.value.length && !modeOptions.value.some((m) => m.value === form.mode)) {
+      form.mode = modeOptions.value[0].value
+    }
     if (!modeModels.value.some((m) => m.modelCode === form.modelCode)) {
       form.modelCode = modeModels.value[0]?.modelCode || ''
     }
@@ -277,6 +305,8 @@ function submit() {
 
 /** 用历史任务的参数填充（"复用"） */
 function reuse(task) {
+  const model = props.models.find((m) => m.modelCode === task.modelCode)
+  if (model) form.provider = model.provider
   form.mode = task.mode
   form.modelCode = task.modelCode
   form.prompt = task.prompt || ''

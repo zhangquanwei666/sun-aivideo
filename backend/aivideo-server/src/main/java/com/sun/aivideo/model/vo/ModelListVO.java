@@ -10,7 +10,7 @@ import lombok.ToString;
 import java.util.List;
 
 /**
- * 出参：可选的视频模型列表。
+ * 出参：可选的视频厂商与模型。前端先选厂商，再按 ModelConfigVO.provider 过滤出该厂商的模型。
  */
 @Data
 @NoArgsConstructor
@@ -19,5 +19,6 @@ import java.util.List;
 @ToString(callSuper = true)
 public class ModelListVO extends BaseResponse {
 
+    private List<ProviderVO> providers;
     private List<ModelConfigVO> models;
 }

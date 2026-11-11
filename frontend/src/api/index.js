@@ -2,8 +2,9 @@ import http from './http'
 
 export const getSystemStatus = () => http.get('/system/status')
 
-/** 返回模型数组（后端响应为 ModelListVO：{ code, message, models }） */
-export const listModels = () => http.get('/models').then((res) => res.models || [])
+/** 可选的厂商与模型（后端响应为 ModelListVO：{ code, message, providers, models }） */
+export const listModels = () =>
+  http.get('/models').then((res) => ({ providers: res.providers || [], models: res.models || [] }))
 
 /** 创建视频生成任务 */
 export const generateVideo = (data) => http.post('/videos', data)

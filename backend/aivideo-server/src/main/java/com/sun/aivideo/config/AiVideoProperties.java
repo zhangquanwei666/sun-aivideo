@@ -31,7 +31,7 @@ public class AiVideoProperties {
 
     @Data
     public static class Polling {
-        private long intervalMs = 10000;
+        private long intervalMs = 15000;
         private int timeoutMinutes = 30;
     }
 }

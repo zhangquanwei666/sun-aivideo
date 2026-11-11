@@ -83,7 +83,13 @@ aivideo-server ──► aivideo-ai ──► aivideo-common
 ```
 
 扩展方式：
-- **新增视频厂商**（可灵、火山引擎 Seedance 等）：在 `VideoProvider` 中加一个枚举值，实现 `VideoGenerationStrategy` 并加上 `@Component`，再往 `t_model_config` 插入模型和单价。工厂会自动收录，server 不用改。
+- **新增视频厂商**（可灵、火山引擎 Seedance、Google Veo 等）：
+  1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
+  2. 实现 `VideoGenerationStrategy` 并加上 `@Component`，在 `available()` 里判断该厂商的 API Key 是否已配置；
+  3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
+
+  工厂会自动收录新策略，前端的**厂商下拉框**也会自动出现这个厂商，server 不用改。只往表里插了模型、还没写策略的厂商，不会出现在前端。
+- **厂商与模型的前端选择**：先选厂商，再选该厂商下的模型。每个厂商单独判断能否真实调用：已配置 Key 的走真实调用；没配置 Key 时，如果允许 Mock 就回退到 Mock（任务的"厂商"会记录为"本地模拟"），否则提交失败并提示未配置 Key。
 - **新增大模型**（DeepSeek 等）：在 `LlmProvider` 中加一个枚举值，实现 `LlmStrategy` 并加上 `@Component`，再把 `aivideo.llm.provider` 改成新的厂商。
 
 ### aivideo-dao（`com.sun.aivideo.dao` / `entity`）：MyBatis-Plus + XML
@@ -136,7 +142,7 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 1. `POST /api/videos`：校验参数，写入任务（状态 `SUBMITTING`），立即返回。
 2. 后台线程：可选的千问润色（记录耗时和 tokens），然后调用百炼创建任务，状态变为 `PENDING`。
-3. 定时任务每 10 秒轮询一次百炼，成功后：
+3. 定时任务每 15 秒轮询一次百炼（`aivideo.polling.interval-ms: 15000`），成功后：
    - **视频费用** = 模型单价（元/秒，按分辨率） × 百炼返回的计费秒数 `usage.duration`
    - **润色费用** = 输入 tokens × 输入单价 + 输出 tokens × 输出单价
    - **总费用** = 视频费用 + 润色费用。任务失败时视频不计费，只保留润色费用。
@@ -266,7 +272,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 | GET | `/api/videos/{id}` | `VideoDetailDTO` | `VideoTaskVO` | 任务详情（状态、视频地址、费用、耗时） |
 | GET | `/api/videos?pageNum=&pageSize=&status=&modelCode=&keyword=` | `VideoTaskQueryDTO` | `PageVO<VideoTaskVO>` | 分页查询 |
 | GET | `/api/videos/stats` | — | `VideoStatsVO` | 费用与耗时汇总，含按模型统计 |
-| GET | `/api/models` | — | `ModelListVO` | 可选模型、参数范围与单价 |
+| GET | `/api/models` | — | `ModelListVO` | 可选的厂商（含是否已配置 Key）与模型（含参数范围、单价） |
 | POST | `/api/files/images` | `ImageUploadDTO`（multipart，字段名 `file`） | `UploadVO` | 上传图生视频的首帧图片 |
 | GET | `/api/system/status` | — | `SystemStatusVO` | 当前环境、是否为 Mock 模式、润色是否可用 |
 
@@ -277,7 +283,9 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 { "code": 0, "message": "success", "url": "/files/images/20261111/xxx.png", "fileName": "a.png", "size": 1024 }
 
 // 成功：GET /api/models
-{ "code": 0, "message": "success", "models": [ { "modelCode": "wan2.7-t2v", "displayName": "万相 2.7 文生视频", "...": "..." } ] }
+{ "code": 0, "message": "success",
+  "providers": [ { "code": "DASHSCOPE", "name": "阿里云百炼", "available": true, "mockFallback": true, "modelCount": 4 } ],
+  "models": [ { "modelCode": "wan2.7-t2v", "displayName": "万相 2.7 文生视频", "provider": "DASHSCOPE", "providerName": "阿里云百炼", "...": "..." } ] }
 
 // 失败：任何接口
 { "code": 400, "message": "每页最多 100 条" }

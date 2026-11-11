@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.aivideo.ai.config.DashScopeProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.video.model.VideoGenerateRequest;
 import com.sun.aivideo.ai.video.model.VideoSubmitResult;
@@ -47,15 +48,24 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final DashScopeProperties dashScopeProperties;
 
-    public DashScopeWanVideoStrategy(RestClient dashScopeRestClient, ObjectMapper objectMapper) {
+    public DashScopeWanVideoStrategy(RestClient dashScopeRestClient, ObjectMapper objectMapper,
+                                     DashScopeProperties dashScopeProperties) {
         this.restClient = dashScopeRestClient;
         this.objectMapper = objectMapper;
+        this.dashScopeProperties = dashScopeProperties;
     }
 
     @Override
     public VideoProvider provider() {
         return VideoProvider.DASHSCOPE;
+    }
+
+    /** 配置了百炼 API Key 才能真实调用 */
+    @Override
+    public boolean available() {
+        return dashScopeProperties.hasApiKey();
     }
 
     @Override

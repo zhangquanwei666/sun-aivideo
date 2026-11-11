@@ -27,6 +27,7 @@ public final class VideoTaskConverter {
         VideoTaskVO vo = new VideoTaskVO();
         vo.setId(t.getId());
         vo.setProvider(t.getProvider());
+        vo.setProviderName(VideoProvider.labelOf(t.getProvider()));
         vo.setMock(VideoProvider.MOCK.name().equals(t.getProvider()));
         vo.setModelCode(t.getModelCode());
         vo.setModelName(model != null ? model.getDisplayName() : t.getModelCode());

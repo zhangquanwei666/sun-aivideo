@@ -1,5 +1,6 @@
 package com.sun.aivideo.converter;
 
+import com.sun.aivideo.common.enums.VideoProvider;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.vo.ModelConfigVO;
 import org.springframework.util.StringUtils;
@@ -20,6 +21,7 @@ public final class ModelConfigConverter {
         vo.setModelCode(m.getModelCode());
         vo.setDisplayName(m.getDisplayName());
         vo.setProvider(m.getProvider());
+        vo.setProviderName(VideoProvider.labelOf(m.getProvider()));
         vo.setMode(m.getMode());
         vo.setResolutions(split(m.getResolutions()));
         vo.setRatios(split(m.getRatios()));

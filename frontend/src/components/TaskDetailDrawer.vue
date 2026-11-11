@@ -88,7 +88,7 @@
               <dt>时长</dt><dd>{{ task.duration }} 秒</dd>
               <dt>智能改写</dt><dd>{{ task.promptExtend ? '开' : '关' }}</dd>
               <template v-if="task.seed != null"><dt>Seed</dt><dd>{{ task.seed }}</dd></template>
-              <dt>厂商</dt><dd>{{ task.provider }}</dd>
+              <dt>厂商</dt><dd>{{ task.providerName || task.provider }}</dd>
               <template v-if="task.finishedAt"><dt>完成时间</dt><dd>{{ task.finishedAt }}</dd></template>
             </dl>
             <img v-if="task.imageUrl" class="first-frame" :src="task.imageUrl" alt="首帧图片" />

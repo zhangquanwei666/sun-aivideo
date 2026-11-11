@@ -15,9 +15,9 @@ public class ModelController {
 
     private final ModelConfigService modelConfigService;
 
-    /** 可选的视频模型、支持的参数与单价 */
+    /** 可选的视频厂商与模型（含支持的参数与单价），前端先选厂商再选模型 */
     @GetMapping
     public ModelListVO list() {
-        return BaseResponse.ok(new ModelListVO(modelConfigService.listEnabled()));
+        return BaseResponse.ok(modelConfigService.listForSelection());
     }
 }

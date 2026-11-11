@@ -1,14 +1,15 @@
 package com.sun.aivideo.service;
 
 import com.sun.aivideo.entity.ModelConfig;
-import com.sun.aivideo.model.vo.ModelConfigVO;
-
-import java.util.List;
+import com.sun.aivideo.model.vo.ModelListVO;
 
 public interface ModelConfigService {
 
-    /** 前端可选的模型列表 */
-    List<ModelConfigVO> listEnabled();
+    /**
+     * 前端可选的厂商与模型：只包含已启用、且厂商已实现调用策略的模型；
+     * 厂商按模型配置的顺序排列，并带上是否已配置 Key。
+     */
+    ModelListVO listForSelection();
 
     /** 按编码获取已启用的模型，不存在则抛业务异常 */
     ModelConfig getEnabledByCode(String modelCode);

@@ -15,6 +15,8 @@ public class ModelConfigVO {
     private String modelCode;
     private String displayName;
     private String provider;
+    /** 厂商展示名称 */
+    private String providerName;
     private String mode;
     private List<String> resolutions;
     private List<String> ratios;
