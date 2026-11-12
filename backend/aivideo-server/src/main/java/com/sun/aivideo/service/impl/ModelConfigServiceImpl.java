@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import com.sun.aivideo.ai.video.VideoGenerationStrategyFactory;
 import com.sun.aivideo.common.enums.VideoProvider;
 import com.sun.aivideo.common.exception.BizException;
@@ -62,7 +63,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
     public ModelConfig getEnabledByCode(String modelCode) {
         ModelConfig model = findByCode(modelCode);
         if (model == null || !Boolean.TRUE.equals(model.getEnabled())) {
-            throw new BizException("模型不存在或未启用：" + modelCode);
+            throw new BizException(ErrorCode.MODEL_NOT_FOUND, modelCode);
         }
         return model;
     }

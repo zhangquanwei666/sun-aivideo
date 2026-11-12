@@ -16,8 +16,8 @@ import java.util.List;
 @Mapper
 public interface ImageTaskMapper extends BaseMapper<ImageTask> {
 
-    /** 逻辑删除，返回影响行数。对应 XML：softDeleteById */
-    int softDeleteById(@Param("id") Long id);
+    /** 逻辑删除，返回影响行数；userId 不为空时只能删除自己的任务。对应 XML：softDeleteById */
+    int softDeleteById(@Param("id") Long id, @Param("userId") Long userId);
 
     /**
      * 把未完成的任务标记为失败（服务重启时调用，避免任务一直停在"生成中"）。
@@ -25,9 +25,9 @@ public interface ImageTaskMapper extends BaseMapper<ImageTask> {
      */
     int failUnfinished(@Param("errorMessage") String errorMessage);
 
-    /** 费用与耗时汇总（包含已删除）。对应 XML：selectStats */
-    ImageStatsBO selectStats();
+    /** 费用与耗时汇总（包含已删除）；userId 为空时统计全部用户。对应 XML：selectStats */
+    ImageStatsBO selectStats(@Param("userId") Long userId);
 
     /** 按模型分组统计（包含已删除）。对应 XML：selectStatsByModel */
-    List<ImageModelStatBO> selectStatsByModel();
+    List<ImageModelStatBO> selectStatsByModel(@Param("userId") Long userId);
 }

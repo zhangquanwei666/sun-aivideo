@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.sun.aivideo.ai.video.strategy.DashScopeWanVideoStrategy;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import cn.dev33.satoken.stp.StpUtil;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,10 +61,11 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         String ratio = validate(dto, model, mode);
         if (ApiProtocol.WAN_LEGACY_T2V.name().equals(model.getProtocol())
                 && DashScopeWanVideoStrategy.legacyT2vSize(dto.getResolution(), ratio) == null) {
-            throw new BizException(model.getDisplayName() + " 的 " + dto.getResolution() + " 不支持画幅 " + ratio);
+            throw new BizException(ErrorCode.RESOLUTION_RATIO_UNSUPPORTED, model.getDisplayName(), dto.getResolution(), ratio);
         }
 
         VideoTask task = new VideoTask();
+        task.setUserId(StpUtil.getLoginIdAsLong());
         task.setProvider(videoStrategyFactory.resolveForNewTask(model.getProvider()).provider().name());
         task.setModelCode(model.getModelCode());
         task.setMode(mode.name());
@@ -95,8 +98,8 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     @Override
     public VideoTaskVO detail(Long id) {
         VideoTask task = videoTaskMapper.selectById(id);
-        if (task == null) {
-            throw new BizException(BizException.NOT_FOUND, "任务不存在：" + id);
+        if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
+            throw new BizException(ErrorCode.VIDEO_NOT_FOUND, id);
         }
         ModelConfig model = modelConfigService.findByCode(task.getModelCode());
         return VideoTaskConverter.toVO(task, model, estimate(task, model));
@@ -111,6 +114,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         Map<Long, VideoTaskVO> result = new java.util.LinkedHashMap<>();
         // selectBatchIds 由 @TableLogic 自动过滤已删除的记录
         for (VideoTask t : videoTaskMapper.selectBatchIds(ids)) {
+            if (!java.util.Objects.equals(t.getUserId(), StpUtil.getLoginIdAsLong())) continue;
             ModelConfig model = models.get(t.getModelCode());
             result.put(t.getId(), VideoTaskConverter.toVO(t, model, estimate(t, model)));
         }
@@ -120,7 +124,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     @Override
     public PageVO<VideoTaskVO> page(VideoTaskQueryDTO query) {
         IPage<VideoTask> page = videoTaskMapper.selectTaskPage(
-                Page.of(query.getPageNum(), query.getPageSize()),
+                Page.of(query.getPageNum(), query.getPageSize()), StpUtil.getLoginIdAsLong(),
                 trimToNull(query.getStatus()),
                 trimToNull(query.getModelCode()),
                 trimToNull(query.getKeyword()));
@@ -137,7 +141,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
 
     @Override
     public VideoStatsVO stats() {
-        VideoStatsBO bo = videoTaskMapper.selectStats();
+        VideoStatsBO bo = videoTaskMapper.selectStats(StpUtil.getLoginIdAsLong());
         Map<String, ModelConfig> models = modelMap();
 
         VideoStatsVO vo = new VideoStatsVO();
@@ -152,7 +156,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         vo.setAvgCost(money(bo.getAvgCost()));
         vo.setAvgElapsedMs(bo.getAvgElapsedMs() == null ? null : bo.getAvgElapsedMs().longValue());
 
-        List<VideoStatsVO.ModelStat> byModel = videoTaskMapper.selectStatsByModel().stream()
+        List<VideoStatsVO.ModelStat> byModel = videoTaskMapper.selectStatsByModel(StpUtil.getLoginIdAsLong()).stream()
                 .map(m -> toModelStat(m, models.get(m.getModelCode())))
                 .toList();
         vo.setByModel(byModel);
@@ -163,15 +167,15 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     public void delete(Long id) {
         // selectById 由 @TableLogic 自动过滤已删除的记录
         VideoTask task = videoTaskMapper.selectById(id);
-        if (task == null) {
-            throw new BizException(BizException.NOT_FOUND, "任务不存在或已删除：" + id);
+        if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
+            throw new BizException(ErrorCode.VIDEO_DELETED, id);
         }
         TaskStatus status = TaskStatus.of(task.getStatus());
         if (status == null || !status.isFinished()) {
-            throw new BizException("视频还在生成中，完成后才能删除");
+            throw new BizException(ErrorCode.VIDEO_IN_PROGRESS);
         }
-        if (videoTaskMapper.softDeleteById(id) == 0) {
-            throw new BizException(BizException.NOT_FOUND, "任务不存在或已删除：" + id);
+        if (videoTaskMapper.softDeleteById(id, StpUtil.getLoginIdAsLong()) == 0) {
+            throw new BizException(ErrorCode.VIDEO_DELETED, id);
         }
         log.info("视频任务已删除（逻辑删除）id={} status={}", id, task.getStatus());
     }
@@ -188,7 +192,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         }
         VideoMode mode = StringUtils.hasText(dto.getImageUrl()) ? VideoMode.I2V : VideoMode.T2V;
         if (!modes.contains(mode.name())) {
-            throw new BizException(model.getDisplayName() + " 不支持" + (mode == VideoMode.I2V ? "图生视频" : "文生视频"));
+            throw new BizException(ErrorCode.MODE_UNSUPPORTED, model.getDisplayName(), mode == VideoMode.I2V ? "图生视频" : "文生视频");
         }
         return mode;
     }
@@ -196,27 +200,26 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     /** 校验参数是否符合模型能力，返回最终使用的画幅比例 */
     private String validate(VideoGenerateDTO dto, ModelConfig model, VideoMode mode) {
         if (mode == VideoMode.T2V && !StringUtils.hasText(dto.getPrompt())) {
-            throw new BizException("文生视频需要填写提示词");
+            throw new BizException(ErrorCode.PROMPT_REQUIRED);
         }
         if (mode == VideoMode.I2V && !StringUtils.hasText(dto.getImageUrl())) {
-            throw new BizException("图生视频需要上传首帧图片");
+            throw new BizException(ErrorCode.FIRST_FRAME_REQUIRED);
         }
         if (mode == VideoMode.I2V && !isAcceptedImage(dto.getImageUrl().trim())) {
-            throw new BizException("首帧图片需为 http(s) 公网地址或上传后的 /files/ 路径");
+            throw new BizException(ErrorCode.INVALID_FIRST_FRAME);
         }
         List<String> resolutions = ModelConfigConverter.split(model.getResolutions());
         if (!resolutions.contains(dto.getResolution())) {
-            throw new BizException(model.getDisplayName() + " 只支持分辨率：" + String.join(" / ", resolutions));
+            throw new BizException(ErrorCode.RESOLUTION_UNSUPPORTED, model.getDisplayName(), String.join(" / ", resolutions));
         }
         if (costService.unitPrice(model, dto.getResolution()) == null) {
-            throw new BizException("未配置 " + dto.getResolution() + " 的单价，请先在 t_model_config 中补充");
+            throw new BizException(ErrorCode.VIDEO_PRICE_MISSING, dto.getResolution());
         }
         if (dto.getDuration() < model.getMinDuration() || dto.getDuration() > model.getMaxDuration()) {
-            throw new BizException(String.format("%s 时长范围为 %d~%d 秒",
-                    model.getDisplayName(), model.getMinDuration(), model.getMaxDuration()));
+            throw new BizException(ErrorCode.DURATION_UNSUPPORTED, model.getDisplayName(), model.getMinDuration(), model.getMaxDuration());
         }
         if (mode == VideoMode.I2V && ApiProtocol.GEMINI_OMNI.name().equals(model.getProtocol()) && dto.getDuration() > 10) {
-            throw new BizException(model.getDisplayName() + " 使用首帧图片时最长 10 秒");
+            throw new BizException(ErrorCode.FIRST_FRAME_DURATION, model.getDisplayName());
         }
         List<String> ratios = ModelConfigConverter.split(model.getRatios());
         if (mode == VideoMode.I2V && (ratios.isEmpty() || !StringUtils.hasText(dto.getRatio()))) {
@@ -227,7 +230,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
             return ratios.isEmpty() ? null : ratios.get(0);
         }
         if (!ratios.isEmpty() && !ratios.contains(dto.getRatio())) {
-            throw new BizException(model.getDisplayName() + " 只支持画幅：" + String.join(" / ", ratios));
+            throw new BizException(ErrorCode.RATIO_UNSUPPORTED, model.getDisplayName(), String.join(" / ", ratios));
         }
         return dto.getRatio();
     }

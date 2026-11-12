@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个语句的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.UserMapper">
+
+    <!-- 表 t_user → 实体 User -->
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.User">
+        <id     column="id"               property="id"/>
+        <result column="username"         property="username"/>
+        <result column="password_hash"    property="passwordHash"/>
+        <result column="nickname"         property="nickname"/>
+        <result column="avatar"           property="avatar"/>
+        <result column="member_level"     property="memberLevel"/>
+        <result column="member_expire_at" property="memberExpireAt"/>
+        <result column="status"           property="status"/>
+        <result column="register_ip"      property="registerIp"/>
+        <result column="last_login_at"    property="lastLoginAt"/>
+        <result column="last_login_ip"    property="lastLoginIp"/>
+        <result column="deleted"          property="deleted"/>
+        <result column="created_at"       property="createdAt"/>
+        <result column="updated_at"       property="updatedAt"/>
+    </resultMap>
+
+    <!-- 用户列表一行 → UserListBO -->
+    <resultMap id="UserListResultMap" type="com.sun.aivideo.dao.bo.UserListBO">
+        <id     column="id"               property="id"/>
+        <result column="username"         property="username"/>
+        <result column="nickname"         property="nickname"/>
+        <result column="member_level"     property="memberLevel"/>
+        <result column="member_expire_at" property="memberExpireAt"/>
+        <result column="status"           property="status"/>
+        <result column="register_ip"      property="registerIp"/>
+        <result column="last_login_at"    property="lastLoginAt"/>
+        <result column="last_login_ip"    property="lastLoginIp"/>
+        <result column="created_at"       property="createdAt"/>
+        <result column="video_count"      property="videoCount"/>
+        <result column="image_count"      property="imageCount"/>
+        <result column="total_cost"       property="totalCost"/>
+    </resultMap>
+
+    <!-- 用户概况 → UserOverviewBO -->
+    <resultMap id="OverviewResultMap" type="com.sun.aivideo.dao.bo.UserOverviewBO">
+        <result column="total_users"     property="totalUsers"/>
+        <result column="vip_users"       property="vipUsers"/>
+        <result column="today_new_users" property="todayNewUsers"/>
+        <result column="disabled_users"  property="disabledUsers"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, username, password_hash, nickname, avatar, member_level, member_expire_at, status,
+        register_ip, last_login_at, last_login_ip, deleted, created_at, updated_at
+    </sql>
+
+    <!-- 有效会员的判断条件：等级为 VIP，且到期时间为空（永久）或晚于当前时间 -->
+    <sql id="Vip_Active">
+        (u.member_level = 'VIP' AND (u.member_expire_at IS NULL OR u.member_expire_at &gt; CURRENT_TIMESTAMP))
+    </sql>
+
+    <!-- UserMapper#selectByUsername：按登录名查询（不含已删除） -->
+    <select id="selectByUsername" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_user
+        WHERE username = #{username}
+          AND deleted = 0
+    </select>
+
+    <select id="selectByIdForUpdate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_user
+        WHERE id = #{id}
+          AND deleted = 0
+        FOR UPDATE
+    </select>
+
+    <update id="updateMembership">
+        UPDATE t_user
+        SET member_level = #{memberLevel},
+            member_expire_at = #{expireAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND deleted = 0
+    </update>
+
+    <!--
+        UserMapper#selectUserPage：管理后台用户列表（不含已删除），按注册时间倒序。
+        视频 / 图片的数量和费用包含用户已删除的任务（费用确实已经产生）。
+    -->
+    <select id="selectUserPage" resultMap="UserListResultMap">
+        SELECT u.id, u.username, u.nickname, u.member_level, u.member_expire_at, u.status,
+               u.register_ip, u.last_login_at, u.last_login_ip, u.created_at,
+               COALESCE(v.task_count, 0)                            AS video_count,
+               COALESCE(i.task_count, 0)                            AS image_count,
+               COALESCE(v.total_cost, 0) + COALESCE(i.total_cost, 0) AS total_cost
+        FROM t_user u
+        LEFT JOIN (SELECT user_id, COUNT(*) AS task_count, SUM(total_cost) AS total_cost
+                   FROM t_video_task GROUP BY user_id) v ON v.user_id = u.id
+        LEFT JOIN (SELECT user_id, COUNT(*) AS task_count, SUM(total_cost) AS total_cost
+                   FROM t_image_task GROUP BY user_id) i ON i.user_id = u.id
+        <where>
+            u.deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (u.username LIKE CONCAT('%', #{keyword}, '%') OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="member == 'VIP'">
+                AND <include refid="Vip_Active"/>
+            </if>
+            <if test="member == 'NORMAL'">
+                AND NOT <include refid="Vip_Active"/>
+            </if>
+            <if test="status != null and status != ''">
+                AND u.status = #{status}
+            </if>
+        </where>
+        ORDER BY u.id DESC
+    </select>
+
+    <!-- UserMapper#selectOverview：用户概况（不含已删除） -->
+    <select id="selectOverview" resultMap="OverviewResultMap">
+        SELECT COUNT(*)                                                                    AS total_users,
+               COALESCE(SUM(CASE WHEN <include refid="Vip_Active"/> THEN 1 ELSE 0 END), 0)  AS vip_users,
+               COALESCE(SUM(CASE WHEN u.created_at &gt;= CURRENT_DATE THEN 1 ELSE 0 END), 0) AS today_new_users,
+               COALESCE(SUM(CASE WHEN u.status = 'DISABLED' THEN 1 ELSE 0 END), 0)        AS disabled_users
+        FROM t_user u
+        WHERE u.deleted = 0
+    </select>
+
+</mapper>

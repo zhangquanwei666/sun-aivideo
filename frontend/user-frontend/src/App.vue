@@ -1,6 +1,6 @@
 <template>
   <div class="shell">
-    <AppHeader :status="status" />
+    <AppHeader v-if="route.path !== '/login'" :status="status" />
     <main class="main">
       <router-view :status="status" />
     </main>
@@ -10,6 +10,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+const route = useRoute()
 import AppHeader from '@/components/AppHeader.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { getSystemStatus } from '@/api'

@@ -41,6 +41,10 @@ public class BaseResponse implements Serializable {
     }
 
     /** 失败响应 */
+    public static BaseResponse fail(com.sun.aivideo.common.enums.ErrorCode error, Object... args) {
+        return fail(error.getCode(), error.format(args));
+    }
+
     public static BaseResponse fail(int code, String message) {
         BaseResponse response = new BaseResponse();
         response.setCode(code);

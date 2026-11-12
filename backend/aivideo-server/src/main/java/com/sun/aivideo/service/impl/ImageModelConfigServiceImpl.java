@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import com.sun.aivideo.ai.image.ImageGenerationStrategyFactory;
 import com.sun.aivideo.common.enums.ImageProvider;
 import com.sun.aivideo.common.exception.BizException;
@@ -61,7 +62,7 @@ public class ImageModelConfigServiceImpl implements ImageModelConfigService {
     public ImageModelConfig getEnabledByCode(String modelCode) {
         ImageModelConfig model = findByCode(modelCode);
         if (model == null || !Boolean.TRUE.equals(model.getEnabled())) {
-            throw new BizException("文生图模型不存在或未启用：" + modelCode);
+            throw new BizException(ErrorCode.IMAGE_MODEL_NOT_FOUND, modelCode);
         }
         return model;
     }

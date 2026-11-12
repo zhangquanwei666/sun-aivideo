@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import com.sun.aivideo.ai.image.ImageGenerationStrategyFactory;
 import com.sun.aivideo.ai.llm.PromptEnhancer;
 import com.sun.aivideo.common.enums.ImageProvider;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import cn.dev33.satoken.stp.StpUtil;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -54,13 +56,14 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     public ImageTaskVO create(ImageGenerateDTO dto) {
         ImageModelConfig model = imageModelConfigService.getEnabledByCode(dto.getModelCode());
         if (!imageStrategyFactory.isSupported(model.getProvider())) {
-            throw new BizException("文生图厂商尚未接入：" + ImageProvider.labelOf(model.getProvider()));
+            throw new BizException(ErrorCode.IMAGE_PROVIDER_UNSUPPORTED, ImageProvider.labelOf(model.getProvider()));
         }
         String ratio = validate(dto, model);
         List<String> references = dto.getReferenceImages() == null ? List.of()
                 : dto.getReferenceImages().stream().map(String::trim).filter(StringUtils::hasText).toList();
 
         ImageTask task = new ImageTask();
+        task.setUserId(StpUtil.getLoginIdAsLong());
         task.setProvider(imageStrategyFactory.resolveForNewTask(model.getProvider()).provider().name());
         task.setModelCode(model.getModelCode());
         task.setStatus(TaskStatus.SUBMITTING.name());
@@ -87,8 +90,8 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     @Override
     public ImageTaskVO detail(Long id) {
         ImageTask task = imageTaskMapper.selectById(id);
-        if (task == null) {
-            throw new BizException(BizException.NOT_FOUND, "图片任务不存在：" + id);
+        if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
+            throw new BizException(ErrorCode.IMAGE_NOT_FOUND, id);
         }
         ImageModelConfig model = imageModelConfigService.findByCode(task.getModelCode());
         return ImageTaskConverter.toVO(task, model, estimate(task, model));
@@ -102,6 +105,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         Map<String, ImageModelConfig> models = modelMap();
         Map<Long, ImageTaskVO> result = new LinkedHashMap<>();
         for (ImageTask t : imageTaskMapper.selectBatchIds(ids)) {
+            if (!java.util.Objects.equals(t.getUserId(), StpUtil.getLoginIdAsLong())) continue;
             ImageModelConfig model = models.get(t.getModelCode());
             result.put(t.getId(), ImageTaskConverter.toVO(t, model, estimate(t, model)));
         }
@@ -111,22 +115,22 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     @Override
     public void delete(Long id) {
         ImageTask task = imageTaskMapper.selectById(id);
-        if (task == null) {
-            throw new BizException(BizException.NOT_FOUND, "图片任务不存在或已删除：" + id);
+        if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
+            throw new BizException(ErrorCode.IMAGE_DELETED, id);
         }
         TaskStatus status = TaskStatus.of(task.getStatus());
         if (status == null || !status.isFinished()) {
-            throw new BizException("图片还在生成中，完成后才能删除");
+            throw new BizException(ErrorCode.IMAGE_IN_PROGRESS);
         }
-        if (imageTaskMapper.softDeleteById(id) == 0) {
-            throw new BizException(BizException.NOT_FOUND, "图片任务不存在或已删除：" + id);
+        if (imageTaskMapper.softDeleteById(id, StpUtil.getLoginIdAsLong()) == 0) {
+            throw new BizException(ErrorCode.IMAGE_DELETED, id);
         }
         log.info("图片任务已删除（逻辑删除）id={}", id);
     }
 
     @Override
     public ImageStatsVO stats() {
-        ImageStatsBO bo = imageTaskMapper.selectStats();
+        ImageStatsBO bo = imageTaskMapper.selectStats(StpUtil.getLoginIdAsLong());
         Map<String, ImageModelConfig> models = modelMap();
 
         ImageStatsVO vo = new ImageStatsVO();
@@ -140,7 +144,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         vo.setTotalLlmCost(bo.getTotalLlmCost() == null ? BigDecimal.ZERO : bo.getTotalLlmCost().setScale(6, RoundingMode.HALF_UP));
         vo.setAvgCost(money(bo.getAvgCost()));
         vo.setAvgElapsedMs(bo.getAvgElapsedMs() == null ? null : bo.getAvgElapsedMs().longValue());
-        vo.setByModel(imageTaskMapper.selectStatsByModel().stream()
+        vo.setByModel(imageTaskMapper.selectStatsByModel(StpUtil.getLoginIdAsLong()).stream()
                 .map(m -> toModelStat(m, models.get(m.getModelCode())))
                 .toList());
         return vo;
@@ -152,26 +156,25 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     private String validate(ImageGenerateDTO dto, ImageModelConfig model) {
         List<String> sizes = ModelConfigConverter.split(model.getSizes());
         if (!sizes.contains(dto.getImageSize())) {
-            throw new BizException(model.getDisplayName() + " 只支持清晰度：" + String.join(" / ", sizes));
+            throw new BizException(ErrorCode.IMAGE_SIZE_UNSUPPORTED, model.getDisplayName(), String.join(" / ", sizes));
         }
         if (costService.imageUnitPrice(model, dto.getImageSize()) == null) {
-            throw new BizException("未配置 " + dto.getImageSize() + " 的单价，请先在 t_image_model_config 中补充");
+            throw new BizException(ErrorCode.IMAGE_PRICE_MISSING, dto.getImageSize());
         }
 
         List<String> references = dto.getReferenceImages() == null ? List.of() : dto.getReferenceImages();
         int max = model.getMaxReferenceImages() == null ? 0 : model.getMaxReferenceImages();
         if (references.size() > max) {
-            throw new BizException(max == 0 ? model.getDisplayName() + " 不支持参考图"
-                    : model.getDisplayName() + " 最多支持 " + max + " 张参考图");
+            throw new BizException(max == 0 ? ErrorCode.REFERENCE_UNSUPPORTED : ErrorCode.TOO_MANY_REFERENCES, model.getDisplayName(), max);
         }
         for (String ref : references) {
             if (!ref.startsWith(FILES_PREFIX) || ref.contains("..")) {
-                throw new BizException("参考图需要先通过上传接口上传");
+                throw new BizException(ErrorCode.REFERENCE_UPLOAD_REQUIRED);
             }
         }
         if (!references.isEmpty() && "4K".equals(dto.getImageSize())
                 && ImageProvider.DASHSCOPE.name().equals(model.getProvider())) {
-            throw new BizException("万相使用参考图时最高支持 2K，请改用 1K 或 2K");
+            throw new BizException(ErrorCode.REFERENCE_SIZE_UNSUPPORTED);
         }
 
         List<String> ratios = ModelConfigConverter.split(model.getRatios());
@@ -179,7 +182,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
             return ratios.isEmpty() ? "1:1" : ratios.get(0);
         }
         if (!ratios.isEmpty() && !ratios.contains(dto.getAspectRatio())) {
-            throw new BizException(model.getDisplayName() + " 只支持画幅：" + String.join(" / ", ratios));
+            throw new BizException(ErrorCode.RATIO_UNSUPPORTED, model.getDisplayName(), String.join(" / ", ratios));
         }
         return dto.getAspectRatio();
     }

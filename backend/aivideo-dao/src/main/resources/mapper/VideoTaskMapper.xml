@@ -6,6 +6,7 @@
     <!-- 表 t_video_task → 实体 VideoTask -->
     <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.VideoTask">
         <id     column="id"                      property="id"/>
+        <result column="user_id"                 property="userId"/>
         <result column="provider"                property="provider"/>
         <result column="model_code"              property="modelCode"/>
         <result column="mode"                    property="mode"/>
@@ -74,7 +75,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
+        id, user_id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
         resolution, ratio, duration, enhance_prompt, prompt_extend, watermark, audio, seed,
         provider_task_id, remote_video_url, local_video_path, error_code, error_message,
         billed_duration, currency, unit_price, video_cost, llm_input_tokens, llm_output_tokens, llm_cost, total_cost,
@@ -93,6 +94,9 @@
         FROM t_video_task
         <where>
             deleted = 0
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
             <if test="status != null and status != ''">
                 AND status = #{status}
             </if>
@@ -119,7 +123,7 @@
         ORDER BY id
     </select>
 
-    <!-- VideoTaskMapper#softDeleteById：逻辑删除（只允许删除未删除的记录，返回影响行数） -->
+    <!-- VideoTaskMapper#softDeleteById：逻辑删除（只允许删除未删除的记录，返回影响行数）；userId 不为空时只能删除自己的任务 -->
     <update id="softDeleteById">
         UPDATE t_video_task
         SET deleted    = 1,
@@ -127,9 +131,12 @@
             updated_at = CURRENT_TIMESTAMP(3)
         WHERE id = #{id}
           AND deleted = 0
+          <if test="userId != null">
+          AND user_id = #{userId}
+          </if>
     </update>
 
-    <!-- VideoTaskMapper#selectStats：费用与耗时汇总（包含已删除的任务：删除只是隐藏，费用确实已经产生） -->
+    <!-- VideoTaskMapper#selectStats：费用与耗时汇总（包含已删除的任务：删除只是隐藏，费用确实已经产生）；userId 为空时统计全部用户 -->
     <select id="selectStats" resultMap="VideoStatsResultMap">
         SELECT COUNT(*)                                                                         AS total_count,
                COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
@@ -142,6 +149,11 @@
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                          AS avg_cost,
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
         FROM t_video_task
+        <where>
+            <if test="userId != null">
+                user_id = #{userId}
+            </if>
+        </where>
     </select>
 
     <!-- VideoTaskMapper#selectStatsByModel：按模型分组统计（同样包含已删除的任务） -->
@@ -153,6 +165,11 @@
                COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN billed_duration ELSE 0 END), 0)  AS total_video_seconds,
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
         FROM t_video_task
+        <where>
+            <if test="userId != null">
+                user_id = #{userId}
+            </if>
+        </where>
         GROUP BY model_code
         ORDER BY total_cost DESC
     </select>

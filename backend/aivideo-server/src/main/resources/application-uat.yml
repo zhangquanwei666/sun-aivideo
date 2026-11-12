@@ -1,11 +1,19 @@
 # UAT 测试环境（也是本地开发环境）：阿里云 RDS MySQL
 # 表结构与初始数据请手动执行：先 backend/sql/ddl.sql（建表），再 backend/sql/dml.sql（初始数据）
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:r-uf67dp115l16ui42nypd.redis.cn-shanghai.rds.aliyuncs.com}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:aivideo}
+      password: ${REDIS_PASSWORD:XXXX}
+      timeout: 5s
+      connect-timeout: 5s
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST:rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:aivideo}
-    password: Zqw123456
+    password: ${MYSQL_PASSWORD:XXXX}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2

@@ -1,6 +1,14 @@
 # PRO 生产环境：所有连接信息与密钥都必须通过环境变量注入，没配会直接启动失败
 # 表结构与初始数据请手动执行：先 backend/sql/ddl.sql（建表），再 backend/sql/dml.sql（初始数据）
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:r-uf67dp115l16ui42nypd.redis.cn-shanghai.rds.aliyuncs.com}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:aivideo}
+      password: ${REDIS_PASSWORD:XXXX}
+      timeout: 5s
+      connect-timeout: 5s
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true

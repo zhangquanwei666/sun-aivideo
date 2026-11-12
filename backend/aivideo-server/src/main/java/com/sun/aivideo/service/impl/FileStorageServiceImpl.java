@@ -1,5 +1,6 @@
 package com.sun.aivideo.service.impl;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.config.AiVideoProperties;
@@ -50,14 +51,14 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public UploadVO saveImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BizException("请选择图片");
+            throw new BizException(ErrorCode.IMAGE_REQUIRED);
         }
         if (file.getSize() > MAX_IMAGE_BYTES) {
-            throw new BizException("图片不能超过 10MB");
+            throw new BizException(ErrorCode.IMAGE_TOO_LARGE);
         }
         String ext = extension(file.getOriginalFilename());
         if (!IMAGE_TYPES.containsKey(ext)) {
-            throw new BizException("仅支持 JPG / PNG / WEBP / BMP 图片");
+            throw new BizException(ErrorCode.IMAGE_TYPE_UNSUPPORTED);
         }
         String relative = "images/" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
                 + "/" + UUID.randomUUID().toString().replace("-", "") + "." + ext;
@@ -68,7 +69,7 @@ public class FileStorageServiceImpl implements FileStorageService {
                 Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
-            throw new BizException(500, "保存图片失败：" + e.getMessage());
+            throw new BizException(ErrorCode.SAVE_IMAGE_FAILED, e.getMessage());
         }
         return new UploadVO(FILES_PREFIX + relative, file.getOriginalFilename(), file.getSize());
     }
@@ -84,13 +85,13 @@ public class FileStorageServiceImpl implements FileStorageService {
         Path root = filesRoot();
         Path path = root.resolve(imageUrl.substring(FILES_PREFIX.length())).normalize();
         if (!path.startsWith(root) || !Files.isRegularFile(path)) {
-            throw new BizException("图片不存在：" + imageUrl);
+            throw new BizException(ErrorCode.LOCAL_IMAGE_NOT_FOUND, imageUrl);
         }
         String mime = IMAGE_TYPES.getOrDefault(extension(path.getFileName().toString()), "image/png");
         try {
             return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(Files.readAllBytes(path));
         } catch (IOException e) {
-            throw new BizException(500, "读取图片失败：" + e.getMessage());
+            throw new BizException(ErrorCode.READ_IMAGE_FAILED, e.getMessage());
         }
     }
 
@@ -135,7 +136,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             log.info("视频已保存到本地 taskId={} {} ({} KB)", taskId, target, data.length / 1024);
             return FILES_PREFIX + relative;
         } catch (IOException e) {
-            throw new BizException(500, "保存视频失败：" + e.getMessage());
+            throw new BizException(ErrorCode.SAVE_VIDEO_FAILED, e.getMessage());
         }
     }
 
@@ -160,18 +161,18 @@ public class FileStorageServiceImpl implements FileStorageService {
                 HttpResponse<Path> resp = downloadClient.send(request, HttpResponse.BodyHandlers.ofFile(target));
                 if (resp.statusCode() / 100 != 2) {
                     Files.deleteIfExists(target);
-                    throw new BizException(BizException.PROVIDER_ERROR, "下载生成的图片失败：HTTP " + resp.statusCode());
+                    throw new BizException(ErrorCode.DOWNLOAD_IMAGE_FAILED, resp.statusCode());
                 }
             } else {
-                throw new BizException(BizException.PROVIDER_ERROR, "厂商返回的图片为空");
+                throw new BizException(ErrorCode.EMPTY_PROVIDER_IMAGE);
             }
             log.info("图片已保存到本地 taskId={} {} ({} KB)", taskId, target, Files.size(target) / 1024);
             return FILES_PREFIX + relative;
         } catch (IOException e) {
-            throw new BizException(500, "保存生成的图片失败：" + e.getMessage());
+            throw new BizException(ErrorCode.SAVE_GENERATED_IMAGE_FAILED, e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new BizException(500, "保存生成的图片被中断");
+            throw new BizException(ErrorCode.IMAGE_SAVE_INTERRUPTED);
         }
     }
 

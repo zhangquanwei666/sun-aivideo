@@ -6,16 +6,39 @@
     <resultMap id="FeedItemResultMap" type="com.sun.aivideo.dao.bo.FeedItemBO">
         <result column="feed_type"  property="feedType"/>
         <result column="id"         property="id"/>
+        <result column="user_id"    property="userId"/>
         <result column="created_at" property="createdAt"/>
     </resultMap>
 
-    <!-- FeedMapper#selectFeedPage：视频与图片合并，按创建时间倒序（不含已删除），分页由 MyBatis-Plus 插件处理 -->
+    <!-- 子查询的公共过滤条件：不含已删除；userId 为空时查全部用户（管理后台）；keyword 模糊匹配提示词 -->
+    <sql id="Feed_Filter">
+        WHERE deleted = 0
+        <if test="userId != null">
+            AND user_id = #{userId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND prompt LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </sql>
+
+    <!--
+        FeedMapper#selectFeedPage：视频与图片合并，按创建时间倒序，分页由 MyBatis-Plus 插件处理。
+        feedType 为空时两种都查；为 VIDEO / IMAGE 时只查一种。
+    -->
     <select id="selectFeedPage" resultMap="FeedItemResultMap">
-        SELECT feed.feed_type, feed.id, feed.created_at
+        SELECT feed.feed_type, feed.id, feed.user_id, feed.created_at
         FROM (
-            SELECT 'VIDEO' AS feed_type, id, created_at FROM t_video_task WHERE deleted = 0
+            <if test="feedType == null or feedType == '' or feedType == 'VIDEO'">
+            SELECT 'VIDEO' AS feed_type, id, user_id, created_at FROM t_video_task
+            <include refid="Feed_Filter"/>
+            </if>
+            <if test="feedType == null or feedType == ''">
             UNION ALL
-            SELECT 'IMAGE' AS feed_type, id, created_at FROM t_image_task WHERE deleted = 0
+            </if>
+            <if test="feedType == null or feedType == '' or feedType == 'IMAGE'">
+            SELECT 'IMAGE' AS feed_type, id, user_id, created_at FROM t_image_task
+            <include refid="Feed_Filter"/>
+            </if>
         ) feed
         ORDER BY feed.created_at DESC, feed.id DESC
     </select>

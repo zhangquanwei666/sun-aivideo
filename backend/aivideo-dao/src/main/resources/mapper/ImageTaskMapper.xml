@@ -27,7 +27,7 @@
         <result column="avg_elapsed_ms"  property="avgElapsedMs"/>
     </resultMap>
 
-    <!-- ImageTaskMapper#softDeleteById：逻辑删除 -->
+    <!-- ImageTaskMapper#softDeleteById：逻辑删除；userId 不为空时只能删除自己的任务 -->
     <update id="softDeleteById">
         UPDATE t_image_task
         SET deleted    = 1,
@@ -35,6 +35,9 @@
             updated_at = CURRENT_TIMESTAMP(3)
         WHERE id = #{id}
           AND deleted = 0
+          <if test="userId != null">
+          AND user_id = #{userId}
+          </if>
     </update>
 
     <!-- ImageTaskMapper#failUnfinished：服务重启时把未完成的任务标记为失败 -->
@@ -49,7 +52,7 @@
           AND deleted = 0
     </update>
 
-    <!-- ImageTaskMapper#selectStats：费用与耗时汇总（包含已删除：费用确实已经产生） -->
+    <!-- ImageTaskMapper#selectStats：费用与耗时汇总（包含已删除：费用确实已经产生）；userId 为空时统计全部用户 -->
     <select id="selectStats" resultMap="ImageStatsResultMap">
         SELECT COUNT(*)                                                                          AS total_count,
                COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                 AS succeeded_count,
@@ -62,6 +65,11 @@
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                           AS avg_cost,
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                     AS avg_elapsed_ms
         FROM t_image_task
+        <where>
+            <if test="userId != null">
+                user_id = #{userId}
+            </if>
+        </where>
     </select>
 
     <!-- ImageTaskMapper#selectStatsByModel：按模型分组统计（包含已删除） -->
@@ -73,6 +81,11 @@
                COALESCE(SUM(total_cost), 0)                                                AS total_cost,
                AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)               AS avg_elapsed_ms
         FROM t_image_task
+        <where>
+            <if test="userId != null">
+                user_id = #{userId}
+            </if>
+        </where>
         GROUP BY model_code
         ORDER BY total_cost DESC
     </select>

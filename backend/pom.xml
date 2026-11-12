@@ -25,8 +25,10 @@
         <module>aivideo-ai</module>
         <!-- 数据访问：实体、Mapper、建表 SQL -->
         <module>aivideo-dao</module>
-        <!-- Web 服务：controller / service，费用与耗时统计，依赖上面两个模块 -->
+        <!-- 前台 Web 服务：controller / service，用户登录注册、视频与图片生成、费用与耗时统计 -->
         <module>aivideo-server</module>
+        <!-- 管理后台服务（独立启动）：管理员登录、用户管理、会员开通、全部生成记录 -->
+        <module>aivideo-admin</module>
     </modules>
 
     <properties>
@@ -34,6 +36,7 @@
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <langchain4j.version>1.8.0</langchain4j.version>
         <lombok.version>1.18.40</lombok.version>
+        <sa-token.version>1.44.0</sa-token.version>
     </properties>
 
     <dependencyManagement>
@@ -62,6 +65,18 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-open-ai</artifactId>
                 <version>${langchain4j.version}</version>
+            </dependency>
+            <!-- Sa-Token：登录鉴权 -->
+            <dependency>
+                <groupId>cn.dev33</groupId>
+                <artifactId>sa-token-spring-boot3-starter</artifactId>
+                <version>${sa-token.version}</version>
+            </dependency>
+            <!-- Sa-Token 集成 Redis：登录态存到 Redis，重启不掉线，前台与管理后台共享 -->
+            <dependency>
+                <groupId>cn.dev33</groupId>
+                <artifactId>sa-token-redis-template</artifactId>
+                <version>${sa-token.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

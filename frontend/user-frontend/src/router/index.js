@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
+  { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
   { path: '/', redirect: '/generate' },
   {
     path: '/generate',
@@ -19,6 +20,10 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach(to => {
+  if (to.path !== '/login' && !localStorage.getItem('aivideo-token')) return '/login'
 })
 
 router.afterEach((to) => {

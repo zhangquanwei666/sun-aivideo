@@ -1,5 +1,6 @@
 package com.sun.aivideo.config;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
@@ -14,6 +15,19 @@ import java.nio.file.Path;
 public class WebConfig implements WebMvcConfigurer {
 
     private final AiVideoProperties properties;
+    private final com.sun.aivideo.dao.UserMapper users;
+    @Override
+    public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+        registry.addInterceptor(new cn.dev33.satoken.interceptor.SaInterceptor(handler -> {
+            cn.dev33.satoken.stp.StpUtil.checkLogin();
+            var user = users.selectById(cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong());
+            if (user == null || !"ENABLED".equals(user.getStatus())) {
+                cn.dev33.satoken.stp.StpUtil.logout();
+                throw new com.sun.aivideo.common.exception.BizException(ErrorCode.ACCOUNT_UNAVAILABLE);
+            }
+        })).addPathPatterns("/api/**").excludePathPatterns("/api/auth/login", "/api/auth/register", "/api/system/status");
+    }
+
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {

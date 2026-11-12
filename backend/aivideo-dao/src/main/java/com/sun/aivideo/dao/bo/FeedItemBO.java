@@ -13,5 +13,7 @@ public class FeedItemBO {
     /** VIDEO / IMAGE */
     private String feedType;
     private Long id;
+    /** 提交任务的用户 */
+    private Long userId;
     private LocalDateTime createdAt;
 }

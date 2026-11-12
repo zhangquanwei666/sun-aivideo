@@ -18,6 +18,8 @@ public class VideoTask {
 
     @TableId(type = IdType.AUTO)
     private Long id;
+    /** 提交任务的用户，关联 t_user.id */
+    private Long userId;
     /** 实际调用的厂商：DASHSCOPE / MOCK */
     private String provider;
     private String modelCode;

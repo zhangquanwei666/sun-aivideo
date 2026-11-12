@@ -1,25 +1,19 @@
 package com.sun.aivideo.common.exception;
 
+import com.sun.aivideo.common.enums.ErrorCode;
 import lombok.Getter;
 
-/**
- * 业务异常，message 会直接返回给前端。
- */
+/** 业务异常的错误码、消息模板统一由 ErrorCode 定义。 */
 @Getter
 public class BizException extends RuntimeException {
+    private final ErrorCode errorCode;
 
-    public static final int BAD_REQUEST = 400;
-    public static final int NOT_FOUND = 404;
-    public static final int PROVIDER_ERROR = 502;
-
-    private final int code;
-
-    public BizException(String message) {
-        this(BAD_REQUEST, message);
+    public BizException(ErrorCode errorCode, Object... args) {
+        super(errorCode.format(args));
+        this.errorCode = errorCode;
     }
 
-    public BizException(int code, String message) {
-        super(message);
-        this.code = code;
+    public int getCode() {
+        return errorCode.getCode();
     }
 }

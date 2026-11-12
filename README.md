@@ -8,11 +8,14 @@ sun-aivideo/
 │   ├── aivideo-common/      通用：枚举、请求 / 响应基类、业务异常 BizException
 │   ├── aivideo-ai/          AI 调用（策略 + 工厂）：视频生成、文生图、大模型策略、提示词润色
 │   ├── aivideo-dao/         数据访问（MyBatis-Plus）：实体、Mapper 接口、Mapper XML
-│   ├── aivideo-server/      Web 服务：controller / service、费用与耗时统计（启动模块）
+│   ├── aivideo-server/      前台服务：用户登录、图片/视频生成、费用与耗时统计
+│   ├── aivideo-admin/       管理服务：管理员登录、用户/会员管理、全站生成记录
 │   └── sql/                 数据库脚本（手动执行）
 │       ├── ddl.sql          DDL：建表（视频：t_model_config、t_video_task；文生图：t_image_model_config、t_image_task）
 │       └── dml.sql          DML：初始化数据（视频模型与单价、文生图模型与单价）
-└── frontend/                Vue 3.5 · Vite 6 · Vue Router · Axios（暗色风格）
+└── frontend/
+    ├── user-frontend/       用户前台 Vue 3.5 · Vite 6（图片/视频生成）
+    └── admin-frontend/      管理后台 Vue 3.5 · Vite 6（用户、会员、生成记录）
 ```
 
 模块依赖：
@@ -22,9 +25,11 @@ aivideo-server ──► aivideo-ai ──► aivideo-common
        │                              ▲
        ├──► aivideo-dao               │
        └──────────────────────────────┘
+
+aivideo-admin ──► aivideo-dao ──► aivideo-common
 ```
 
-`aivideo-ai` 和 `aivideo-dao` 互不依赖，也不依赖 server。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别四个模块。
+`aivideo-ai` 和 `aivideo-dao` 互不依赖，也不依赖 server。前台服务默认端口为 18088，管理服务默认端口为 18089。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别五个模块。
 
 ## 技术选型
 
@@ -171,7 +176,7 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 两个脚本都可以重复执行：建表用 `CREATE TABLE IF NOT EXISTS`，数据用 `INSERT IGNORE`。每条语句和每个字段在脚本里都有注释说明用途。以后新增或修改表结构写进 `ddl.sql`，新增初始数据写进 `dml.sql`。
 
-后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 模块的配置项（`aivideo.dashscope.*`、`aivideo.llm.*`、`aivideo.mock.*`）也写在这些文件里，由 `aivideo-ai` 中的 Properties 类读取。前端配置在 `frontend/.env.development`、`.env.uat`、`.env.production`。左侧导航栏会显示当前后端环境（UAT / PRO）。
+后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 模块的配置项（`aivideo.dashscope.*`、`aivideo.llm.*`、`aivideo.mock.*`）也写在这些文件里，由 `aivideo-ai` 中的 Properties 类读取。用户前台配置在 `frontend/user-frontend/.env.*`，管理前端配置在 `frontend/admin-frontend/.env.*`。
 
 切换后端环境：
 
@@ -196,6 +201,9 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 | `MYSQL_HOST` | 默认 `rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com` | **必填** | |
 | `MYSQL_USER` | 默认 `aivideo` | **必填** | |
 | `MYSQL_DB` / `MYSQL_PORT` | 默认 `aivideo` / `3306` | 默认 `aivideo` / `3306` | |
+| `REDIS_PASSWORD` | **必填** | **必填** | uat 未配置时为占位符 `XXXX`，用于 Sa-Token 会话存储 |
+| `REDIS_HOST` / `REDIS_PORT` | 默认阿里云 Redis / `6379` | **必填** | |
+| `REDIS_USERNAME` | 默认 `aivideo` | **必填** | |
 | `AIVIDEO_DATA_DIR` | 默认 `./data` | 默认 `/data/aivideo` | 上传的图片和下载的视频存放目录 |
 | `AIVIDEO_LOG_FILE` | — | 默认 `/data/aivideo/logs/sun-aivideo.log` | |
 | `AIVIDEO_CORS_ORIGINS` | — | 可选 | 跨域部署时的前端域名，逗号分隔 |
@@ -209,33 +217,43 @@ pro 启动时会检查配置：没配 `DASHSCOPE_API_KEY`、数据库密码为�
 
 启动前请确认表已经手动建好（见上文"环境"一节），并且 RDS 白名单里有本机的公网 IP。
 
-在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD`（需要真实调用百炼时再加 `DASHSCOPE_API_KEY`），工作目录设为 `backend/aivideo-server`。
+在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD` 和 `REDIS_PASSWORD`（需要真实调用百炼时再加 `DASHSCOPE_API_KEY`），工作目录设为 `backend/aivideo-server`。
 
-命令行启动（在 `backend` 父工程目录执行即可，会自动编译所有模块）：
+命令行启动（PowerShell，在项目根目录执行；会自动编译前台服务依赖的模块）：
 
-```bash
-$env:MYSQL_PASSWORD = "你的密码"
-```
-
-```bash
-cd backend
-mvn spring-boot:run
+```powershell
+$env:MYSQL_PASSWORD = "你的 MySQL 密码"
+$env:REDIS_PASSWORD = "你的 Redis 密码"
+Set-Location backend
+mvn -pl aivideo-server -am spring-boot:run
 ```
 
 前端需要 Node 18 及以上版本（项目里写了 `.nvmrc`，对应 24.16.0）：
 
 ```bash
 nvm use 24.16.0
-cd frontend
+cd frontend/user-frontend
 npm install
 npm run dev
 ```
 
 打开 http://localhost:25173 。`/api` 和 `/files` 会代理到 `VITE_PROXY_TARGET`（默认 `http://localhost:18088`）。
 
+如需同时启动管理后台服务，请另开一个 PowerShell 窗口，在项目根目录执行：
+
+```powershell
+$env:MYSQL_PASSWORD = "你的 MySQL 密码"
+$env:REDIS_PASSWORD = "你的 Redis 密码"
+$env:AIVIDEO_ADMIN_PASSWORD = "首次初始化管理员的强密码"
+Set-Location backend
+mvn -pl aivideo-admin -am spring-boot:run
+```
+
+管理员已经初始化后，`AIVIDEO_ADMIN_PASSWORD` 可以不再设置。管理前端使用 `npm run dev:admin` 启动，访问 http://localhost:25174 。
+
 ### UAT 部署
 
-后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD` 和 `DASHSCOPE_API_KEY`）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
+后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD`、`REDIS_PASSWORD` 和可选的 `DASHSCOPE_API_KEY`）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
 
 ### PRO 生产部署
 
@@ -248,16 +266,16 @@ mvn clean package -DskipTests
 ```
 
 ```bash
-SPRING_PROFILES_ACTIVE=pro DASHSCOPE_API_KEY=sk-xxx MYSQL_HOST=xxx MYSQL_USER=xxx MYSQL_PASSWORD=xxx java -jar aivideo-server/target/sun-aivideo-server.jar
+SPRING_PROFILES_ACTIVE=pro DASHSCOPE_API_KEY=sk-xxx MYSQL_HOST=xxx MYSQL_USER=xxx MYSQL_PASSWORD=xxx REDIS_HOST=xxx REDIS_USERNAME=xxx REDIS_PASSWORD=xxx java -jar aivideo-server/target/sun-aivideo-server.jar
 ```
 
-3. 打包前端：执行 `npm run build:pro`，产物在 `frontend/dist`。推荐用 Nginx 和后端同域部署，这样 `/files` 下的视频和图片也能直接访问，不需要配置跨域：
+3. 在 `frontend/user-frontend` 执行 `npm run build:pro`，产物在 `frontend/user-frontend/dist`。推荐用 Nginx 和后端同域部署，这样 `/files` 下的视频和图片也能直接访问，不需要配置跨域：
 
 ```nginx
 server {
     listen 80;
     server_name video.example.com;
-    root /usr/share/nginx/html/sun-aivideo;   # frontend/dist
+    root /usr/share/nginx/html/sun-aivideo;   # frontend/user-frontend/dist
     client_max_body_size 16m;
 
     location / { try_files $uri $uri/ /index.html; }

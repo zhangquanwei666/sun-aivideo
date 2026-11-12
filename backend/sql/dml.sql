@@ -76,3 +76,14 @@ VALUES
 -- Nano Banana Pro（Gemini 3 Pro Image）：1K / 2K $0.134，4K $0.24，最多 14 张参考图
 ('gemini-3-pro-image', 'Nano Banana Pro', 'GEMINI', '1K,2K,4K', '1:1,16:9,9:16,4:3,3:4,3:2,2:3,21:9', 14, 'USD',
  0.1340, 0.1340, 0.2400, '质量最高，画面中的文字渲染好', '官方定价（美元），按汇率折算', 1, 40);
+
+
+-- ----------------------------------------------------------------------------
+-- 3. （可选）把历史任务归到某个用户
+--    用途：加用户功能之前生成的视频、图片没有所属用户（user_id 为空），前台任何人都看不到，
+--          只在管理后台可见。如果想让某个前台用户看到这些历史记录，先在前台注册该账号，
+--          再把下面的 'your_username' 换成登录名，取消注释后执行。
+--    说明：管理员账号不在本文件初始化，表为空时由管理后台启动时根据环境变量 AIVIDEO_ADMIN_PASSWORD 自动创建。
+-- ----------------------------------------------------------------------------
+-- UPDATE t_video_task SET user_id = (SELECT id FROM t_user WHERE username = 'your_username') WHERE user_id IS NULL;
+-- UPDATE t_image_task SET user_id = (SELECT id FROM t_user WHERE username = 'your_username') WHERE user_id IS NULL;

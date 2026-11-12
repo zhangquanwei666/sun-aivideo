@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 对应 Mapper 接口全限定名；每个语句的 id 对应接口中的同名方法 -->
+<mapper namespace="com.sun.aivideo.dao.AdminMapper">
+
+    <!-- 表 t_admin → 实体 Admin -->
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.Admin">
+        <id     column="id"            property="id"/>
+        <result column="username"      property="username"/>
+        <result column="password_hash" property="passwordHash"/>
+        <result column="nickname"      property="nickname"/>
+        <result column="status"        property="status"/>
+        <result column="last_login_at" property="lastLoginAt"/>
+        <result column="last_login_ip" property="lastLoginIp"/>
+        <result column="created_at"    property="createdAt"/>
+        <result column="updated_at"    property="updatedAt"/>
+    </resultMap>
+
+    <!-- AdminMapper#selectByUsername：按登录名查询 -->
+    <select id="selectByUsername" resultMap="BaseResultMap">
+        SELECT id, username, password_hash, nickname, status, last_login_at, last_login_ip, created_at, updated_at
+        FROM t_admin
+        WHERE username = #{username}
+    </select>
+
+    <!-- AdminMapper#countAll：管理员总数 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM t_admin
+    </select>
+
+</mapper>

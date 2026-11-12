@@ -100,3 +100,11 @@ aivideo:
     video-url: https://www.w3schools.com/html/mov_bbb.mp4
     # 模拟生成耗时（秒）
     generate-seconds: 12
+
+sa-token:
+  token-name: satoken
+  timeout: 604800
+  is-read-cookie: false
+  is-read-body: false
+  is-share: false
+  token-style: random-64

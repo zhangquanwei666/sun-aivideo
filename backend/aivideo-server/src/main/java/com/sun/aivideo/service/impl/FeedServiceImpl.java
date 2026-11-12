@@ -32,7 +32,7 @@ public class FeedServiceImpl implements FeedService {
 
     @Override
     public PageVO<FeedItemVO> page(FeedQueryDTO query) {
-        IPage<FeedItemBO> page = feedMapper.selectFeedPage(Page.of(query.getPageNum(), query.getPageSize()));
+        IPage<FeedItemBO> page = feedMapper.selectFeedPage(Page.of(query.getPageNum(), query.getPageSize()), cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong(), null, null);
 
         // 先按类型拿到 ID，再分别批量查询详情，最后按原顺序拼回去
         List<Long> videoIds = new ArrayList<>();

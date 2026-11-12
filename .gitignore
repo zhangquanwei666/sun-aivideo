@@ -4,8 +4,8 @@ backend/**/data/
 *.log
 
 # frontend
-frontend/node_modules/
-frontend/dist/
+frontend/**/node_modules/
+frontend/**/dist/
 
 # IDE
 .idea/
@@ -13,6 +13,6 @@ frontend/dist/
 .vscode/
 .DS_Store
 
-# 本地密钥（frontend/.env.development / .env.uat / .env.production 不含密钥，需要提交）
+# 本地密钥（两个前端模块的公共 .env.* 不含密钥，需要提交）
 .env.local
 .env.*.local

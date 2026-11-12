@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com}:${MYSQL_PORT:3306}/${MYSQL_DB:aivideo}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:aivideo}
+    password: ${MYSQL_PASSWORD:XXXX}
+  data:
+    redis:
+      host: ${REDIS_HOST:r-uf67dp115l16ui42nypd.redis.cn-shanghai.rds.aliyuncs.com}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:aivideo}
+      password: ${REDIS_PASSWORD:XXXX}
+      timeout: 5s
+      connect-timeout: 5s
+
+logging:
+  level:
+    com.sun.aivideo: debug

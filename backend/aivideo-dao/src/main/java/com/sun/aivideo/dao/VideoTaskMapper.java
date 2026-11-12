@@ -24,6 +24,7 @@ public interface VideoTaskMapper extends BaseMapper<VideoTask> {
      * 对应 XML：selectTaskPage
      */
     IPage<VideoTask> selectTaskPage(IPage<VideoTask> page,
+                                    @Param("userId") Long userId,
                                     @Param("status") String status,
                                     @Param("modelCode") String modelCode,
                                     @Param("keyword") String keyword);
@@ -38,19 +39,20 @@ public interface VideoTaskMapper extends BaseMapper<VideoTask> {
      * 逻辑删除：deleted 置为 1 并记录删除时间，已删除的记录不会重复处理。
      * 对应 XML：softDeleteById
      *
-     * @return 影响行数，0 表示记录不存在或已被删除
+     * @param userId 不为空时只能删除该用户自己的任务
+     * @return 影响行数，0 表示记录不存在、已被删除或不属于该用户
      */
-    int softDeleteById(@Param("id") Long id);
+    int softDeleteById(@Param("id") Long id, @Param("userId") Long userId);
 
     /**
-     * 费用与耗时汇总（包含已删除的任务）。
+     * 费用与耗时汇总（包含已删除的任务）；userId 为空时统计全部用户。
      * 对应 XML：selectStats
      */
-    VideoStatsBO selectStats();
+    VideoStatsBO selectStats(@Param("userId") Long userId);
 
     /**
      * 按模型分组的费用与耗时统计。
      * 对应 XML：selectStatsByModel
      */
-    List<ModelStatBO> selectStatsByModel();
+    List<ModelStatBO> selectStatsByModel(@Param("userId") Long userId);
 }
