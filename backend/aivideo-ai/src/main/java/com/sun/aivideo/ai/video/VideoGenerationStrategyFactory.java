@@ -1,6 +1,6 @@
 package com.sun.aivideo.ai.video;
 
-import com.sun.aivideo.ai.config.DashScopeProperties;
+import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.video.strategy.VideoGenerationStrategy;
 import com.sun.aivideo.common.enums.VideoProvider;
@@ -19,9 +19,9 @@ import java.util.Map;
 public class VideoGenerationStrategyFactory {
 
     private final Map<VideoProvider, VideoGenerationStrategy> strategies = new EnumMap<>(VideoProvider.class);
-    private final DashScopeProperties dashScopeProperties;
+    private final MockVideoProperties mockProperties;
 
-    public VideoGenerationStrategyFactory(List<VideoGenerationStrategy> strategyList, DashScopeProperties dashScopeProperties) {
+    public VideoGenerationStrategyFactory(List<VideoGenerationStrategy> strategyList, MockVideoProperties mockProperties) {
         for (VideoGenerationStrategy s : strategyList) {
             VideoGenerationStrategy old = strategies.put(s.provider(), s);
             if (old != null) {
@@ -29,7 +29,7 @@ public class VideoGenerationStrategyFactory {
                         + old.getClass().getSimpleName() + "、" + s.getClass().getSimpleName());
             }
         }
-        this.dashScopeProperties = dashScopeProperties;
+        this.mockProperties = mockProperties;
         log.info("已注册视频生成策略：{}", strategies.keySet());
     }
 
@@ -37,7 +37,7 @@ public class VideoGenerationStrategyFactory {
      * 新任务实际使用的策略：
      * <ol>
      *     <li>所选厂商可以真实调用（已配置 Key）→ 该厂商</li>
-     *     <li>不可用但允许 Mock（aivideo.dashscope.mock-when-no-key=true）→ Mock</li>
+     *     <li>不可用但允许 Mock（aivideo.mock.when-no-key=true）→ Mock</li>
      *     <li>否则报错</li>
      * </ol>
      *
@@ -68,7 +68,7 @@ public class VideoGenerationStrategyFactory {
 
     /** 厂商不可用时是否会退回 Mock */
     public boolean allowMockFallback() {
-        return dashScopeProperties.isMockWhenNoKey() && strategies.containsKey(VideoProvider.MOCK);
+        return mockProperties.isWhenNoKey() && strategies.containsKey(VideoProvider.MOCK);
     }
 
     /** 按任务记录的厂商名获取（轮询时使用） */

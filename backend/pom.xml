@@ -21,8 +21,11 @@
     <modules>
         <!-- 通用：枚举、统一响应体、业务异常 -->
         <module>aivideo-common</module>
-        <!-- AI 调用：百炼万相视频生成、千问提示词润色，不依赖数据库与 Web 层 -->
+        <!-- AI 核心：统一模型、策略接口、工厂与 Mock，不依赖厂商适配、数据库与 Web 层 -->
         <module>aivideo-ai</module>
+        <!-- 厂商适配：阿里云百炼 / Google Gemini，均只依赖 AI 核心模块 -->
+        <module>aivideo-ai-channel-dashscope</module>
+        <module>aivideo-ai-channel-gemini</module>
         <!-- 数据访问：实体、Mapper、建表 SQL -->
         <module>aivideo-dao</module>
         <!-- 前台 Web 服务：controller / service，用户登录注册、视频与图片生成、费用与耗时统计 -->
@@ -49,6 +52,16 @@
             <dependency>
                 <groupId>com.sun</groupId>
                 <artifactId>sun-aivideo-ai</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun</groupId>
+                <artifactId>sun-aivideo-ai-channel-dashscope</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun</groupId>
+                <artifactId>sun-aivideo-ai-channel-gemini</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

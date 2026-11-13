@@ -25,9 +25,9 @@ aivideo:
     allowed-origin-patterns: ${AIVIDEO_CORS_ORIGINS:}
   storage:
     base-dir: ${AIVIDEO_DATA_DIR:/data/aivideo}
-  dashscope:
+  mock:
     # 生产禁止 Mock：没配 DASHSCOPE_API_KEY 时启动失败
-    mock-when-no-key: false
+    when-no-key: false
 
 logging:
   file:

@@ -1,11 +1,12 @@
-package com.sun.aivideo.ai.image.strategy;
+package com.sun.aivideo.ai.gemini.image;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.aivideo.ai.config.AiClientConfig;
-import com.sun.aivideo.ai.config.GeminiProperties;
+import com.sun.aivideo.ai.gemini.config.GeminiClientConfig;
+import com.sun.aivideo.ai.gemini.config.GeminiProperties;
+import com.sun.aivideo.ai.image.strategy.ImageGenerationStrategy;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
 import com.sun.aivideo.ai.image.model.ImageGenerateRequest;
@@ -41,7 +42,7 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
     private final ObjectMapper objectMapper;
     private final GeminiProperties geminiProperties;
 
-    public GeminiNanoBananaStrategy(@Qualifier(AiClientConfig.GEMINI_REST_CLIENT) RestClient restClient,
+    public GeminiNanoBananaStrategy(@Qualifier(GeminiClientConfig.IMAGE_REST_CLIENT) RestClient restClient,
                                     ObjectMapper objectMapper,
                                     GeminiProperties geminiProperties) {
         this.restClient = restClient;

@@ -1,11 +1,12 @@
-package com.sun.aivideo.ai.video.strategy;
+package com.sun.aivideo.ai.dashscope.video;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.aivideo.ai.config.AiClientConfig;
-import com.sun.aivideo.ai.config.DashScopeProperties;
+import com.sun.aivideo.ai.dashscope.config.DashScopeClientConfig;
+import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
+import com.sun.aivideo.ai.video.strategy.VideoGenerationStrategy;
 import org.springframework.beans.factory.annotation.Qualifier;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.video.model.VideoGenerateRequest;
@@ -54,7 +55,7 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
     private final ObjectMapper objectMapper;
     private final DashScopeProperties dashScopeProperties;
 
-    public DashScopeWanVideoStrategy(@Qualifier(AiClientConfig.DASHSCOPE_REST_CLIENT) RestClient dashScopeRestClient,
+    public DashScopeWanVideoStrategy(@Qualifier(DashScopeClientConfig.VIDEO_REST_CLIENT) RestClient dashScopeRestClient,
                                      ObjectMapper objectMapper,
                                      DashScopeProperties dashScopeProperties) {
         this.restClient = dashScopeRestClient;

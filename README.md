@@ -6,7 +6,9 @@
 sun-aivideo/
 ├── backend/                 Maven 父工程（Spring Boot 3.5 · Java 21）
 │   ├── aivideo-common/      通用：枚举、请求 / 响应基类、业务异常 BizException
-│   ├── aivideo-ai/          AI 调用（策略 + 工厂）：视频生成、文生图、大模型策略、提示词润色
+│   ├── aivideo-ai/          AI 核心：统一模型、策略接口、工厂、Mock、提示词润色编排
+│   ├── aivideo-ai-channel-dashscope/ 阿里云百炼：万相视频、万相图片、千问润色及客户端配置
+│   ├── aivideo-ai-channel-gemini/   Google Gemini：Omni Flash 视频、Nano Banana 图片及客户端配置
 │   ├── aivideo-dao/         数据访问（MyBatis-Plus）：实体、Mapper 接口、Mapper XML
 │   ├── aivideo-server/      前台服务：用户登录、图片/视频生成、费用与耗时统计
 │   ├── aivideo-admin/       管理服务：管理员登录、用户/会员管理、全站生成记录
@@ -21,15 +23,16 @@ sun-aivideo/
 模块依赖：
 
 ```
-aivideo-server ──► aivideo-ai ──► aivideo-common
-       │                              ▲
-       ├──► aivideo-dao               │
-       └──────────────────────────────┘
+aivideo-server
+├──► aivideo-ai-channel-dashscope ──► aivideo-ai
+├──► aivideo-ai-channel-gemini ─────► aivideo-ai
+├──► aivideo-ai ──► aivideo-common
+└──► aivideo-dao ──► aivideo-common
 
 aivideo-admin ──► aivideo-dao ──► aivideo-common
 ```
 
-`aivideo-ai` 和 `aivideo-dao` 互不依赖，也不依赖 server。前台服务默认端口为 18088，管理服务默认端口为 18089。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别五个模块。
+`aivideo-ai` 和 `aivideo-dao` 互不依赖，也不依赖 server。两个厂商模块依赖 `aivideo-ai`，彼此不依赖；HTTP、JSON 和 LangChain4j 等调用依赖放在对应厂商模块。前台服务默认端口为 18088，管理服务默认端口为 18089。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别七个模块。
 
 ## 技术选型
 
@@ -66,15 +69,13 @@ aivideo-admin ──► aivideo-dao ──► aivideo-common
 
 ### aivideo-ai（`com.sun.aivideo.ai`）：策略 + 工厂
 
-只负责调用 AI，不依赖数据库和 Web 层。
+提供统一请求 / 结果模型、策略接口、工厂、Mock 和提示词润色编排，不依赖具体厂商模块、数据库和 Web 层。真实模型调用放在对应的厂商模块。
 
 ```
 ├── video/
 │   ├── VideoGenerationStrategyFactory    工厂：收集所有策略，按 VideoProvider 取用；无 API Key 时返回 Mock
 │   ├── strategy/
 │   │   ├── VideoGenerationStrategy       策略接口：provider() / submit() / query()
-│   │   ├── DashScopeWanVideoStrategy     百炼万相
-│   │   ├── GeminiOmniVideoStrategy       Google Gemini Omni Flash
 │   │   └── MockVideoStrategy             本地模拟
 │   └── model/                            VideoGenerateRequest、VideoSubmitResult、VideoTaskResult
 ├── llm/
@@ -82,17 +83,34 @@ aivideo-admin ──► aivideo-dao ──► aivideo-common
 │   ├── PromptEnhancer                    提示词润色，通过工厂拿到策略后调用
 │   ├── strategy/
 │   │   ├── LlmStrategy                   策略接口：provider() / available() / modelName() / chat()
-│   │   ├── QwenLlmStrategy               通义千问（LangChain4j）
 │   │   └── MockLlmStrategy               本地模拟（不计费）
 │   └── model/                            LlmChatRequest、LlmChatResponse、PromptEnhanceResult
-├── config/       DashScopeProperties、LlmProperties、MockVideoProperties、AiClientConfig（RestClient）
+├── image/        文生图策略接口、工厂、统一模型、MockImageStrategy
+├── config/       AiCoreConfig、LlmProperties、MockVideoProperties
 └── exception/    AiClientException
 ```
+
+厂商模块各自管理调用实现、配置项与 HTTP 客户端：
+
+```text
+aivideo-ai-channel-dashscope/（com.sun.aivideo.ai.dashscope）
+├── config/       DashScopeProperties、DashScopeClientConfig
+├── video/        DashScopeWanVideoStrategy
+├── image/        DashScopeWanImageStrategy
+└── llm/          QwenLlmStrategy（LangChain4j）
+
+aivideo-ai-channel-gemini/（com.sun.aivideo.ai.gemini）
+├── config/       GeminiProperties、GeminiClientConfig
+├── video/        GeminiOmniVideoStrategy
+└── image/        GeminiNanoBananaStrategy
+```
+
+`aivideo-server` 引入 AI 核心和两个厂商模块，Spring 自动扫描并注册策略。配置仍统一放在 server 的 `application*.yml`，现有配置前缀、API Key 环境变量和接口保持不变。
 
 扩展方式：
 - **新增视频厂商**（可灵、火山引擎 Seedance 等）：
   1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
-  2. 实现 `VideoGenerationStrategy` 并加上 `@Component`，在 `available()` 里判断该厂商的 API Key 是否已配置；
+  2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，在 `available()` 里判断该厂商的 API Key 是否已配置；
   3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
 
   工厂会自动收录新策略，前端的**厂商下拉框**也会自动出现这个厂商，server 不用改。只往表里插了模型、还没写策略的厂商，不会出现在前端。
@@ -176,7 +194,7 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 两个脚本都可以重复执行：建表用 `CREATE TABLE IF NOT EXISTS`，数据用 `INSERT IGNORE`。每条语句和每个字段在脚本里都有注释说明用途。以后新增或修改表结构写进 `ddl.sql`，新增初始数据写进 `dml.sql`。
 
-后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 模块的配置项（`aivideo.dashscope.*`、`aivideo.llm.*`、`aivideo.mock.*`）也写在这些文件里，由 `aivideo-ai` 中的 Properties 类读取。用户前台配置在 `frontend/user-frontend/.env.*`，管理前端配置在 `frontend/admin-frontend/.env.*`。
+后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 配置项也写在这些文件里：`aivideo.llm.*`、`aivideo.mock.*` 由 AI 核心模块的 Properties 类读取，`aivideo.dashscope.*`、`aivideo.gemini.*` 分别由对应厂商模块的 Properties 类读取。用户前台配置在 `frontend/user-frontend/.env.*`，管理前端配置在 `frontend/admin-frontend/.env.*`。
 
 切换后端环境：
 

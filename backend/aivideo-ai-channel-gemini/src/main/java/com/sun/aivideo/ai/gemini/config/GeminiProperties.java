@@ -1,4 +1,4 @@
-package com.sun.aivideo.ai.config;
+package com.sun.aivideo.ai.gemini.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

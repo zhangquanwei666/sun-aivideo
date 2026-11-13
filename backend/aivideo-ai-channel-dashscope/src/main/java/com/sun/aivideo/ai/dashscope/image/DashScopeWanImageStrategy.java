@@ -1,11 +1,12 @@
-package com.sun.aivideo.ai.image.strategy;
+package com.sun.aivideo.ai.dashscope.image;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.aivideo.ai.config.AiClientConfig;
-import com.sun.aivideo.ai.config.DashScopeProperties;
+import com.sun.aivideo.ai.dashscope.config.DashScopeClientConfig;
+import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
+import com.sun.aivideo.ai.image.strategy.ImageGenerationStrategy;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
 import com.sun.aivideo.ai.image.model.ImageGenerateRequest;
@@ -47,7 +48,7 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
     private final ObjectMapper objectMapper;
     private final DashScopeProperties dashScopeProperties;
 
-    public DashScopeWanImageStrategy(@Qualifier(AiClientConfig.DASHSCOPE_IMAGE_REST_CLIENT) RestClient restClient,
+    public DashScopeWanImageStrategy(@Qualifier(DashScopeClientConfig.IMAGE_REST_CLIENT) RestClient restClient,
                                      ObjectMapper objectMapper,
                                      DashScopeProperties dashScopeProperties) {
         this.restClient = restClient;

@@ -54,8 +54,6 @@ aivideo:
     base-url: https://dashscope.aliyuncs.com
     connect-timeout-seconds: 10
     read-timeout-seconds: 60
-    # 未配置 API Key 时使用 Mock 模型，便于不花钱联调；生产环境关闭（视频、文生图、润色共用这个开关）
-    mock-when-no-key: true
 
   gemini:
     # Google Gemini API Key（Nano Banana 文生图 + Omni Flash 视频），通过环境变量 GEMINI_API_KEY 注入；不配时 Gemini 走 Mock
@@ -96,6 +94,8 @@ aivideo:
     timeout-minutes: 30
 
   mock:
+    # 所选厂商未配置 API Key 时是否回退 Mock；生产环境在 application-pro.yml 中关闭
+    when-no-key: true
     # Mock 模式下返回的示例视频（Big Buck Bunny，CC BY 3.0）
     video-url: https://www.w3schools.com/html/mov_bbb.mp4
     # 模拟生成耗时（秒）

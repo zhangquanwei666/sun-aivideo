@@ -21,10 +21,18 @@
             <groupId>com.sun</groupId>
             <artifactId>sun-aivideo-common</artifactId>
         </dependency>
-        <!-- AI 调用模块 -->
+        <!-- AI 核心与厂商适配模块 -->
         <dependency>
             <groupId>com.sun</groupId>
             <artifactId>sun-aivideo-ai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.sun</groupId>
+            <artifactId>sun-aivideo-ai-channel-dashscope</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.sun</groupId>
+            <artifactId>sun-aivideo-ai-channel-gemini</artifactId>
         </dependency>
         <!-- 数据访问模块（MyBatis-Plus、MySQL 驱动随之引入） -->
         <dependency>

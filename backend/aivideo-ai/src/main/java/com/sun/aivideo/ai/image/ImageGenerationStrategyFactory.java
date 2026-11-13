@@ -1,6 +1,6 @@
 package com.sun.aivideo.ai.image;
 
-import com.sun.aivideo.ai.config.DashScopeProperties;
+import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.strategy.ImageGenerationStrategy;
 import com.sun.aivideo.common.enums.ImageProvider;
@@ -19,9 +19,9 @@ import java.util.Map;
 public class ImageGenerationStrategyFactory {
 
     private final Map<ImageProvider, ImageGenerationStrategy> strategies = new EnumMap<>(ImageProvider.class);
-    private final DashScopeProperties dashScopeProperties;
+    private final MockVideoProperties mockProperties;
 
-    public ImageGenerationStrategyFactory(List<ImageGenerationStrategy> strategyList, DashScopeProperties dashScopeProperties) {
+    public ImageGenerationStrategyFactory(List<ImageGenerationStrategy> strategyList, MockVideoProperties mockProperties) {
         for (ImageGenerationStrategy s : strategyList) {
             ImageGenerationStrategy old = strategies.put(s.provider(), s);
             if (old != null) {
@@ -29,7 +29,7 @@ public class ImageGenerationStrategyFactory {
                         + old.getClass().getSimpleName() + "、" + s.getClass().getSimpleName());
             }
         }
-        this.dashScopeProperties = dashScopeProperties;
+        this.mockProperties = mockProperties;
         log.info("已注册文生图策略：{}", strategies.keySet());
     }
 
@@ -58,9 +58,9 @@ public class ImageGenerationStrategyFactory {
         return isSupported(providerName) && getStrategy(providerName).available();
     }
 
-    /** 与视频共用同一个开关：aivideo.dashscope.mock-when-no-key */
+    /** 与视频共用同一个开关：aivideo.mock.when-no-key */
     public boolean allowMockFallback() {
-        return dashScopeProperties.isMockWhenNoKey() && strategies.containsKey(ImageProvider.MOCK);
+        return mockProperties.isWhenNoKey() && strategies.containsKey(ImageProvider.MOCK);
     }
 
     public ImageGenerationStrategy getStrategy(String providerName) {

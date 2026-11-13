@@ -1,6 +1,7 @@
-package com.sun.aivideo.ai.llm.strategy;
+package com.sun.aivideo.ai.dashscope.llm;
 
-import com.sun.aivideo.ai.config.DashScopeProperties;
+import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
+import com.sun.aivideo.ai.llm.strategy.LlmStrategy;
 import com.sun.aivideo.ai.config.LlmProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.llm.model.LlmChatRequest;

@@ -1,7 +1,7 @@
 package com.sun.aivideo.ai.llm;
 
-import com.sun.aivideo.ai.config.DashScopeProperties;
 import com.sun.aivideo.ai.config.LlmProperties;
+import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.llm.strategy.LlmStrategy;
 import com.sun.aivideo.common.enums.LlmProvider;
@@ -22,10 +22,10 @@ public class LlmStrategyFactory {
 
     private final Map<LlmProvider, LlmStrategy> strategies = new EnumMap<>(LlmProvider.class);
     private final LlmProperties llmProperties;
-    private final DashScopeProperties dashScopeProperties;
+    private final MockVideoProperties mockProperties;
 
     public LlmStrategyFactory(List<LlmStrategy> strategyList, LlmProperties llmProperties,
-                              DashScopeProperties dashScopeProperties) {
+                              MockVideoProperties mockProperties) {
         for (LlmStrategy s : strategyList) {
             LlmStrategy old = strategies.put(s.provider(), s);
             if (old != null) {
@@ -34,7 +34,7 @@ public class LlmStrategyFactory {
             }
         }
         this.llmProperties = llmProperties;
-        this.dashScopeProperties = dashScopeProperties;
+        this.mockProperties = mockProperties;
         log.info("已注册大模型策略：{}，当前配置：{}", strategies.keySet(), llmProperties.getProvider());
     }
 
@@ -51,7 +51,7 @@ public class LlmStrategyFactory {
      * <ol>
      *     <li>润色关闭（aivideo.llm.enabled=false）→ 无</li>
      *     <li>配置的厂商可用 → 该厂商</li>
-     *     <li>不可用但允许 Mock（aivideo.dashscope.mock-when-no-key=true）→ Mock</li>
+     *     <li>不可用但允许 Mock（aivideo.mock.when-no-key=true）→ Mock</li>
      *     <li>否则 → 无</li>
      * </ol>
      */
@@ -63,7 +63,7 @@ public class LlmStrategyFactory {
         if (configured != null && configured.available()) {
             return Optional.of(configured);
         }
-        if (dashScopeProperties.isMockWhenNoKey()) {
+        if (mockProperties.isWhenNoKey()) {
             return Optional.of(getStrategy(LlmProvider.MOCK));
         }
         return Optional.empty();

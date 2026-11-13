@@ -3,7 +3,7 @@ package com.sun.aivideo.service.impl;
 import com.sun.aivideo.common.enums.ErrorCode;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.sun.aivideo.ai.video.strategy.DashScopeWanVideoStrategy;
+import com.sun.aivideo.ai.dashscope.video.DashScopeWanVideoStrategy;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.converter.VideoTaskConverter;

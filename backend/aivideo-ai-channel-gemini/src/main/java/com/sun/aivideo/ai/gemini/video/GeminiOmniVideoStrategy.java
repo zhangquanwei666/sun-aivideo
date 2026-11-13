@@ -1,11 +1,12 @@
-package com.sun.aivideo.ai.video.strategy;
+package com.sun.aivideo.ai.gemini.video;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sun.aivideo.ai.config.AiClientConfig;
-import com.sun.aivideo.ai.config.GeminiProperties;
+import com.sun.aivideo.ai.gemini.config.GeminiClientConfig;
+import com.sun.aivideo.ai.gemini.config.GeminiProperties;
+import com.sun.aivideo.ai.video.strategy.VideoGenerationStrategy;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.video.model.VideoGenerateRequest;
 import com.sun.aivideo.ai.video.model.VideoSubmitResult;
@@ -67,7 +68,7 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
     private record Completed(byte[] video, int duration, LocalDateTime start, LocalDateTime end) {
     }
 
-    public GeminiOmniVideoStrategy(@Qualifier(AiClientConfig.GEMINI_VIDEO_REST_CLIENT) RestClient restClient,
+    public GeminiOmniVideoStrategy(@Qualifier(GeminiClientConfig.VIDEO_REST_CLIENT) RestClient restClient,
                                    ObjectMapper objectMapper,
                                    GeminiProperties geminiProperties) {
         this.restClient = restClient;
