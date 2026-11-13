@@ -12,8 +12,6 @@ public class UserListBO {
     private Long id;
     private String username;
     private String nickname;
-    private String memberLevel;
-    private LocalDateTime memberExpireAt;
     private String status;
     private String registerIp;
     private LocalDateTime lastLoginAt;

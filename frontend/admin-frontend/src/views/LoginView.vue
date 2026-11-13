@@ -4,7 +4,7 @@
     <section class="visual">
       <p class="eyebrow">SUN AI VIDEO · CONTROL ROOM</p>
       <h1>把每一次生成，<br><span class="gradient-text">看得清清楚楚。</span></h1>
-      <p class="lead">管理用户、会员和创作记录。所有正在发生的想象，都汇聚在这里。</p>
+      <p class="lead">管理用户和创作记录。所有正在发生的想象，都汇聚在这里。</p>
       <div class="frame-stack" aria-hidden="true"><i/><i/><i/><div class="play">▶</div></div>
     </section>
     <form class="login-card glass" @submit.prevent="submit">

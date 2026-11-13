@@ -16,7 +16,6 @@ public enum ErrorCode {
     UNAUTHORIZED(401, "请先登录或登录已过期"),
     FORBIDDEN(403, "无权限执行此操作"),
     NOT_FOUND(404, "资源不存在"),
-    MEMBER_REQUIRED(4031, "需要开通会员才能使用"),
     PROVIDER_ERROR(502, "AI 服务调用失败"),
     INTERNAL_ERROR(500, "服务器内部错误"),
     DATABASE_ERROR(500, "数据库访问失败"),
@@ -70,7 +69,6 @@ public enum ErrorCode {
     ADMIN_UNAVAILABLE(401, "管理员账号不可用，请重新登录"),
     USER_NOT_FOUND(404, "用户不存在：%s"),
     INVALID_USER_STATUS(400, "用户状态只支持 ENABLED / DISABLED"),
-    INVALID_MEMBER_DAYS(400, "会员天数必须大于 0"),
     INVALID_FEED_TYPE(400, "记录类型只支持 VIDEO / IMAGE");
 
     private final int code;

@@ -1,7 +1,7 @@
 # ============================================================
 # 公共配置，各环境的差异放在 application-{env}.yml
 #   uat  ：测试环境，阿里云 RDS（默认，本地开发也用这个）
-#   pro  ：生产环境，所有连接信息与密钥都必须通过环境变量注入
+#   pro  ：生产环境，连接参数由环境变量注入；凭证主密钥见 aivideo.credentials
 # 切换方式：SPRING_PROFILES_ACTIVE=pro 或 --spring.profiles.active=pro
 # ============================================================
 server:
@@ -36,7 +36,8 @@ mybatis-plus:
 
 aivideo:
   credentials:
-    master-key: ${AIVIDEO_CREDENTIAL_MASTER_KEY:}
+    # 固定加密主密钥；环境变量可覆盖。已存储用户 Key 后请勿直接更换，并随数据库备份保存。
+    master-key: "${AIVIDEO_CREDENTIAL_MASTER_KEY:3pZ1wIWxIjMufKv41bbEB+njcibR5IN+u4lEb7/vGUM=}"
     key-id: ${AIVIDEO_CREDENTIAL_KEY_ID:v1}
   cors:
     # 允许跨域的前端地址；生产环境前后端同域部署时可以不配
@@ -89,8 +90,8 @@ aivideo:
     output-price-per-million: 2.0
 
   polling:
-    # 轮询百炼任务状态的间隔：15 秒（官方建议约 15 秒，任务查询接口默认限流 20 次/秒）
-    interval-ms: 15000
+    # 查询厂商任务状态的间隔：10 秒
+    interval-ms: 10000
     # 超过该时长仍未完成的任务标记为超时
     timeout-minutes: 30
 

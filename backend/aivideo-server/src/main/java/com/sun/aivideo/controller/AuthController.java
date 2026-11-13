@@ -25,7 +25,7 @@ public class AuthController {
  @PostMapping("/register") @Transactional public AuthVO register(@Valid @RequestBody Credentials dto, HttpServletRequest request) {
    if(dto.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72) throw new BizException(ErrorCode.PASSWORD_TOO_LONG);
    User u=new User(); u.setUsername(dto.username()); u.setPasswordHash(encoder.encode(dto.password()));
-   u.setNickname(dto.username()); u.setStatus("ENABLED"); u.setMemberLevel("NORMAL"); u.setDeleted(false); u.setRegisterIp(request.getRemoteAddr());
+   u.setNickname(dto.username()); u.setStatus("ENABLED"); u.setDeleted(false); u.setRegisterIp(request.getRemoteAddr());
    try { users.insert(u); } catch(DuplicateKeyException e) { throw new BizException(ErrorCode.USERNAME_EXISTS); }
    return createSession(u);
  }
@@ -38,7 +38,7 @@ public class AuthController {
  }
  @GetMapping("/me") public Map<String,Object> me() {
    User u=users.selectById(StpUtil.getLoginIdAsLong());
-   return Map.of("code",0,"message","success","id",u.getId().toString(),"username",u.getUsername(),"memberLevel",u.getMemberLevel());
+   return Map.of("code",0,"message","success","id",u.getId().toString(),"username",u.getUsername());
  }
  @PostMapping("/logout") public BaseResponse logout() { StpUtil.logout(); return BaseResponse.ok(); }
 

@@ -29,12 +29,18 @@ npm run dev
 - `POST /api/admin/auth/login`：管理员登录，参数 `username`、`password`。
 - `GET /api/admin/auth/me`：当前管理员。
 - `POST /api/admin/auth/logout`：退出。
-- `GET /api/admin/users`：用户分页，支持 `keyword`、`member`、`status`。
-- `GET /api/admin/users/overview`：用户总数、有效会员、今日新增、禁用数。
+- `GET /api/admin/users`：用户分页，支持 `keyword`、`status`。
+- `GET /api/admin/users/overview`：用户总数、今日新增、禁用数。
 - `PUT /api/admin/users/{id}/status`：启用或禁用，参数 `status`。
-- `POST /api/admin/users/{id}/membership`：开通或续期，`days` 为空表示永久会员。
-- `POST /api/admin/users/{id}/membership/revoke`：取消会员。
-- `GET /api/admin/member-records`：会员变更流水。
 - `GET /api/admin/feed`：全站生成记录，支持 `userId`、`type`、`keyword`。
 
-除登录接口外，所有接口都必须携带 `admin-token`。会员变更会在数据库事务中锁定用户行，并记录操作管理员、变更前后到期时间和备注。
+除登录接口外，所有接口都必须携带 `admin-token`。账号启用/禁用会在数据库事务中锁定用户行；禁用后的用户不能继续使用前台登录态调用受保护接口。
+
+## 移除会员功能后的数据库清理
+
+会员开通、续期、取消、流水查询和会员统计已移除，用户资料不再返回会员字段。
+
+- 新建库：直接执行最新 `backend/sql/ddl.sql` 和 `backend/sql/dml.sql`。
+- 已有库：停止旧版用户服务和管理服务，备份需要保留的会员历史，在目标业务库的同一数据库连接中完整执行 `backend/sql/20261113_remove_membership.sql`，然后启动新版服务，并部署两个前端。
+- 脚本删除 `t_member_record` 表，以及 `t_user.member_level`、`t_user.member_expire_at` 两列，可重复执行。MySQL DDL 会自动提交，删除的会员历史需要从备份恢复。
+- 用户、管理员、生成记录和个人厂商密钥保留。不要在新版数据库上启动仍依赖会员字段的旧版服务。

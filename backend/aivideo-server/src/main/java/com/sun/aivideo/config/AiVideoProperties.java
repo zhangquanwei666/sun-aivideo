@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Web 服务自身的配置。AI 相关配置（aivideo.dashscope / llm / mock）在 aivideo-ai 模块中。
+ * Web 服务自身的配置。llm / mock 配置在 aivideo-ai-core 模块中，厂商连接配置在对应 channel 模块中。
  */
 @Data
 @ConfigurationProperties(prefix = "aivideo")
@@ -39,7 +39,7 @@ public class AiVideoProperties {
 
     @Data
     public static class Polling {
-        private long intervalMs = 15000;
+        private long intervalMs = 10000;
         private int timeoutMinutes = 30;
     }
 }

@@ -12,7 +12,7 @@
 
     <artifactId>sun-aivideo-admin</artifactId>
     <name>sun-aivideo-admin</name>
-    <description>管理后台服务（独立启动）：管理员登录、用户管理、会员开通、全部生成记录</description>
+    <description>管理后台服务（独立启动）：管理员登录、用户管理、全部生成记录</description>
 
     <dependencies>
         <dependency>

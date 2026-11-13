@@ -39,14 +39,14 @@
       <div ref="accountRoot" class="account">
         <button class="account-trigger" type="button" :aria-expanded="menuOpen" aria-haspopup="menu" @click="menuOpen = !menuOpen">
           <span class="avatar">{{ initial }}</span>
-          <span class="account-copy"><b>{{ me.username || '用户' }}</b><small>{{ memberLabel }}</small></span>
+          <span class="account-copy"><b>{{ me.username || '用户' }}</b><small>个人账户</small></span>
           <svg class="chevron" :class="{ open: menuOpen }" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
         </button>
         <transition name="menu">
           <div v-if="menuOpen" class="account-menu" role="menu">
             <div class="menu-profile">
               <span class="avatar large">{{ initial }}</span>
-              <span><b>{{ me.username || '当前用户' }}</b><small>{{ memberLabel }}<template v-if="me.id"> · ID {{ me.id }}</template></small></span>
+              <span><b>{{ me.username || '当前用户' }}</b><small>个人账户<template v-if="me.id"> · ID {{ me.id }}</template></small></span>
             </div>
             <div class="menu-separator" />
             <button type="button" role="menuitem" :disabled="loggingOut" @click="signOut">
@@ -77,7 +77,6 @@ const envName = computed(() => props.status.env || import.meta.env.VITE_APP_ENV 
 // 拿到后端返回的环境信息才算连上
 const connected = computed(() => !!props.status.env)
 const initial = computed(() => (me.value.username || 'U').slice(0, 1).toUpperCase())
-const memberLabel = computed(() => me.value.memberLevel === 'VIP' ? 'VIP 会员' : '普通用户')
 
 function closeOnOutside(event) {
   if (menuOpen.value && !accountRoot.value?.contains(event.target)) menuOpen.value = false

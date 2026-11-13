@@ -10,9 +10,9 @@
         <version>0.1.0</version>
     </parent>
 
-    <artifactId>sun-aivideo-ai</artifactId>
-    <name>sun-aivideo-ai</name>
-    <description>AI 核心模块：统一模型、策略接口、策略工厂与 Mock 实现</description>
+    <artifactId>sun-aivideo-ai-core</artifactId>
+    <name>sun-aivideo-ai-core</name>
+    <description>AI 调用公共核心：统一模型、策略接口与工厂、凭证上下文、Mock 和提示词润色编排</description>
 
     <dependencies>
         <dependency>

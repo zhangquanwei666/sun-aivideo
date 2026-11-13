@@ -1,7 +1,7 @@
 <template>
   <section class="page">
     <header class="hero">
-      <div><p class="eyebrow">LIVE OVERVIEW</p><h1>创作系统，<span class="gradient-text">此刻正在发生。</span></h1><p>用户、会员与生成任务的实时概览。</p></div>
+      <div><p class="eyebrow">LIVE OVERVIEW</p><h1>创作系统，<span class="gradient-text">此刻正在发生。</span></h1><p>用户与生成任务的实时概览。</p></div>
       <div class="live-pill"><i/> 系统在线 <span>{{ now }}</span></div>
     </header>
     <div v-if="error" class="error">{{ error }}</div>
@@ -29,7 +29,7 @@
           <div v-for="user in users" :key="user.id" class="user-row">
             <div class="user-avatar">{{ (user.nickname || user.username)[0].toUpperCase() }}</div>
             <div><strong>{{ user.nickname || user.username }}</strong><small>@{{ user.username }}</small></div>
-            <span :class="['badge', user.memberLevel === 'VIP' ? 'vip' : '']">{{ user.memberLevel }}</span>
+            <span :class="['badge', user.status === 'ENABLED' ? 'success' : 'danger']">{{ user.status === 'ENABLED' ? '正常' : '已禁用' }}</span>
           </div>
           <div v-if="!users.length && !loading" class="empty">暂无用户</div>
         </div>
@@ -45,7 +45,7 @@ import { compact, fileUrl } from '@/utils/format'
 const overview=ref({}),feed=ref([]),feedTotal=ref(0),users=ref([]),loading=ref(true),error=ref(''),now=ref('')
 const metrics=computed(()=>[
   {label:'全部用户',value:compact(overview.value.totalUsers),note:`今日新增 ${overview.value.todayNewUsers||0}`,color:'#86a9ff'},
-  {label:'有效会员',value:compact(overview.value.vipUsers),note:'当前 VIP 用户',color:'#ad8cff'},
+  {label:'正常账号',value:compact((overview.value.totalUsers||0)-(overview.value.disabledUsers||0)),note:'当前启用的用户',color:'#ad8cff'},
   {label:'生成作品',value:compact(feedTotal.value),note:'当前可见生成记录',color:'#66d7e6'},
   {label:'已禁用',value:compact(overview.value.disabledUsers),note:'需要关注的账号',color:'#ff918c'}
 ])

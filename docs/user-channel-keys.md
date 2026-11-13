@@ -13,7 +13,7 @@
 ## 数据库升级
 
 - 新环境：执行 `backend/sql/ddl.sql`，再执行 `backend/sql/dml.sql`。
-- 已有环境：停止接收新任务，等待旧任务及下载完成，再执行一次 `backend/sql/20261113_user_channel_credentials.sql`。其中 ALTER TABLE 不可重复执行。
+- 已有环境已完成凭证表和任务字段升级，无需重复执行；一次性升级脚本已移除。
 - 升级同时覆盖用户服务与管理服务的代码，因为两个服务共享任务实体和数据库。
 - 不自动迁移全局平台 Key 到任何用户；历史记录和费用保留，旧任务的凭证版本为空。未排空的旧任务不会使用用户新 Key 冒充原账户恢复。
 
@@ -23,7 +23,9 @@
 
 ## 加密主密钥
 
-用户服务必须配置 `AIVIDEO_CREDENTIAL_MASTER_KEY`，值为 Base64 编码的 32 字节随机密钥。示例（PowerShell，生成后请在密钥管理系统中安全保存）：
+用户服务的加密主密钥配置在 `backend/aivideo-server/src/main/resources/application.yml` 的 `aivideo.credentials.master-key` 中，已生成一把 Base64 编码的 32 字节随机密钥，UAT 和生产环境默认继承此配置，无需额外设置环境变量。配置采用 `${AIVIDEO_CREDENTIAL_MASTER_KEY:配置文件中的固定值}`，设置环境变量后优先使用环境变量。
+
+需要为独立部署生成另一把主密钥时，可使用以下命令；已有用户密钥的环境必须继续使用原主密钥：
 
 ```powershell
 $credentialMasterBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
@@ -31,7 +33,7 @@ $env:AIVIDEO_CREDENTIAL_MASTER_KEY = [Convert]::ToBase64String($credentialMaster
 $env:AIVIDEO_CREDENTIAL_KEY_ID = "v1"
 ```
 
-不要每次启动重新生成：所有用户服务实例必须使用相同主密钥，数据库备份恢复时也必须具备对应主密钥。不得写入仓库、前端环境变量、数据库或日志。管理服务不解密凭证，不需要此环境变量。
+不要每次启动重新生成：所有用户服务实例必须使用相同主密钥，数据库备份恢复时也必须具备对应主密钥。妥善保管含主密钥的配置文件，不要公开或写入前端、数据库、日志。管理服务不解密凭证，不需要此配置。
 
 采用 AES-256-GCM，随机 nonce，每次加密关联用户和渠道，避免密文被跨用户替换。`AIVIDEO_CREDENTIAL_KEY_ID` 用于识别主密钥版本；当前实现一次加载一把主密钥，不支持直接替换主密钥后自动解密旧数据。主密钥轮换需专门执行重加密迁移，不能只修改环境变量。
 

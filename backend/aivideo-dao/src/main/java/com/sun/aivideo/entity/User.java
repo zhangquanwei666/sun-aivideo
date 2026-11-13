@@ -10,7 +10,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
-/** 前台用户（t_user）：注册后为普通用户，开通会员后才能生成视频 */
+/** 前台用户（t_user）：启用的账号配置个人厂商密钥后可生成图片和视频 */
 @Data
 @TableName("t_user")
 public class User {
@@ -23,11 +23,6 @@ public class User {
     private String passwordHash;
     private String nickname;
     private String avatar;
-
-    /** 会员等级：NORMAL 普通用户 / VIP 会员 */
-    private String memberLevel;
-    /** 会员到期时间；等级为 VIP 且为空表示永久会员 */
-    private LocalDateTime memberExpireAt;
 
     /** ENABLED 正常 / DISABLED 已禁用 */
     private String status;

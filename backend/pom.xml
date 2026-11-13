@@ -22,7 +22,7 @@
         <!-- 通用：枚举、统一响应体、业务异常 -->
         <module>aivideo-common</module>
         <!-- AI 核心：统一模型、策略接口、工厂与 Mock，不依赖厂商适配、数据库与 Web 层 -->
-        <module>aivideo-ai</module>
+        <module>aivideo-ai-core</module>
         <!-- 厂商适配：阿里云百炼 / Google Gemini，均只依赖 AI 核心模块 -->
         <module>aivideo-ai-channel-dashscope</module>
         <module>aivideo-ai-channel-gemini</module>
@@ -30,7 +30,7 @@
         <module>aivideo-dao</module>
         <!-- 前台 Web 服务：controller / service，用户登录注册、视频与图片生成、费用与耗时统计 -->
         <module>aivideo-server</module>
-        <!-- 管理后台服务（独立启动）：管理员登录、用户管理、会员开通、全部生成记录 -->
+        <!-- 管理后台服务（独立启动）：管理员登录、用户管理、全部生成记录 -->
         <module>aivideo-admin</module>
     </modules>
 
@@ -51,7 +51,7 @@
             </dependency>
             <dependency>
                 <groupId>com.sun</groupId>
-                <artifactId>sun-aivideo-ai</artifactId>
+                <artifactId>sun-aivideo-ai-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

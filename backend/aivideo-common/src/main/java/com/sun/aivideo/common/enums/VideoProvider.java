@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 视频生成厂商。新增厂商（可灵、火山引擎 Seedance、Google Veo 等）时：
- * 在此加一个枚举值，并在 aivideo-ai 中实现 VideoGenerationStrategy，前端的厂商下拉框会自动出现。
+ * 在此加一个枚举值，并在对应 aivideo-ai-channel-* 模块中实现 VideoGenerationStrategy，前端的厂商下拉框会自动出现。
  */
 @Getter
 @RequiredArgsConstructor

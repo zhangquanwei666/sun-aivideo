@@ -8,13 +8,11 @@ import lombok.Getter;
 public class OverviewResponse extends BaseResponse {
 
     private final long totalUsers;
-    private final long vipUsers;
     private final long todayNewUsers;
     private final long disabledUsers;
 
     private OverviewResponse(UserOverviewBO source) {
         this.totalUsers = value(source.getTotalUsers());
-        this.vipUsers = value(source.getVipUsers());
         this.todayNewUsers = value(source.getTodayNewUsers());
         this.disabledUsers = value(source.getDisabledUsers());
     }

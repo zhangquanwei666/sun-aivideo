@@ -58,14 +58,12 @@ const initial = computed(() => (me.value.nickname || me.value.username || 'A').s
 const icons = {
   home: '<svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
   users: '<svg viewBox="0 0 24 24"><path d="M16 20v-1.5c0-2.5-2-4.5-4.5-4.5h-3C6 14 4 16 4 18.5V20m14-6c1.6.5 2.8 2 2.8 3.8V20M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8m7-1a3 3 0 1 0 0-6"/></svg>',
-  film: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 4v16m8-16v16M3 9h5m8 0h5M3 15h5m8 0h5"/></svg>',
-  member: '<svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>'
+  film: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 4v16m8-16v16M3 9h5m8 0h5M3 15h5m8 0h5"/></svg>'
 }
 const nav = [
   { to: '/dashboard', label: '总览', short: '总览', icon: icons.home },
   { to: '/users', label: '用户管理', short: '用户', icon: icons.users },
-  { to: '/records', label: '生成记录', short: '记录', icon: icons.film },
-  { to: '/members', label: '会员流水', short: '会员', icon: icons.member }
+  { to: '/records', label: '生成记录', short: '记录', icon: icons.film }
 ]
 
 async function signOut() {
@@ -130,7 +128,7 @@ main { min-width: 0; min-height: 0; }
 .mobile-nav { display: none; }
 @media (max-width: 850px) {
   .shell { display: block; }.sidebar { display: none; }.workspace { grid-template-rows: 58px minmax(0,1fr); }.topbar { padding: 0 16px; }.account-trigger { min-width: 0; padding: 0 5px; }.account-trigger>.identity,.chevron { display: none; }
-  .mobile-nav { position: fixed; display: grid; grid-template-columns: repeat(4,1fr); z-index: 30; left: 12px; right: 12px; bottom: 12px; height: 65px; border-radius: 20px; padding: 7px; }
+  .mobile-nav { position: fixed; display: grid; grid-template-columns: repeat(3,1fr); z-index: 30; left: 12px; right: 12px; bottom: 12px; height: 65px; border-radius: 20px; padding: 7px; }
   .mobile-nav a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:var(--muted); border-radius:14px; }
   .mobile-nav a.router-link-active { color:var(--text); background:rgba(255,255,255,.08); }
   .mobile-nav small { font-size:9px; }

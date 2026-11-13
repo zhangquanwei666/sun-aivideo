@@ -14,7 +14,7 @@ public class VideoTaskPollingJob {
 
     private final VideoTaskWorker videoTaskWorker;
 
-    @Scheduled(initialDelay = 5000, fixedDelayString = "${aivideo.polling.interval-ms:15000}")
+    @Scheduled(initialDelay = 5000, fixedDelayString = "${aivideo.polling.interval-ms:10000}")
     public void poll() {
         videoTaskWorker.pollActiveTasks();
     }

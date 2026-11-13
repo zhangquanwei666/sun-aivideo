@@ -1,6 +1,6 @@
 # 用户登录与数据关联
 
-沿用现有 t_user、UserMapper 和任务 user_id 设计。用户名唯一，密码 BCrypt 哈希；普通用户注册后可生成图片和视频。会员字段保留，本次不增加会员付费门槛，管理后台未纳入本次实现。
+沿用现有 t_user、UserMapper 和任务 user_id 设计。用户名唯一，密码 BCrypt 哈希；注册且账号启用的用户配置个人厂商密钥后可生成图片和视频。
 
 ## 业务规则
 - 注册、登录公开；系统状态公开；其他 /api/** 必须携带 satoken 请求头。
@@ -16,7 +16,7 @@
 ## 接口
 POST /api/auth/register：{username,password}，直接返回 token、username，无需再次调用登录。
 POST /api/auth/login：{username,password}，返回 token、username。
-GET /api/auth/me：返回 id、username、memberLevel，不返回密码哈希。
+GET /api/auth/me：返回 id、username，不返回密码哈希。
 POST /api/auth/logout：注销当前令牌。
 统一业务响应 code=0 成功、401 需登录、403 账号禁用。
 

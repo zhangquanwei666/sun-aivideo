@@ -8,6 +8,28 @@ import java.util.HashMap;
 
 /** 实际解析生产 Mapper，校验版本绑定字段和清理 SQL 的动态分支。 */
 class CredentialMapperTest {
+    @Test void userQueriesWorkWithOnlyAccountFieldsAndStatusFilters() throws Exception {
+        var config = new MybatisConfiguration();
+        try (var stream = getClass().getResourceAsStream("/mapper/UserMapper.xml")) {
+            assertNotNull(stream);
+            new XMLMapperBuilder(stream, config, "UserMapper.xml", config.getSqlFragments()).parse();
+        }
+        var params = new HashMap<String, Object>();
+        params.put("keyword", "alice"); params.put("status", "ENABLED");
+        var query = config.getMappedStatement("com.sun.aivideo.dao.UserMapper.selectUserPage");
+        var bound = query.getBoundSql(params);
+        assertTrue(bound.getSql().contains("u.status = ?"));
+        assertTrue(bound.getSql().contains("u.username LIKE"));
+        assertEquals(java.util.List.of("keyword", "keyword", "status"), bound.getParameterMappings().stream()
+                .map(org.apache.ibatis.mapping.ParameterMapping::getProperty).toList());
+        params.put("keyword", null); params.put("status", null);
+        assertFalse(query.getBoundSql(params).getSql().contains("u.status = ?"));
+        for (String id : new String[]{"selectByUsername", "selectByIdForUpdate", "selectUserPage", "selectOverview"}) {
+            String sql = config.getMappedStatement("com.sun.aivideo.dao.UserMapper." + id).getBoundSql(params).getSql().toLowerCase();
+            assertFalse(sql.contains("member")); assertFalse(sql.contains("vip"));
+        }
+    }
+
     @Test void mapperResolvesVersionBindingsAndNeverPurgesCurrentOrActiveVersions() throws Exception {
         var config = new MybatisConfiguration();
         for (String file : new String[]{"ChannelCredentialMapper.xml", "VideoTaskMapper.xml"}) {

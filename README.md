@@ -6,35 +6,37 @@
 sun-aivideo/
 ├── backend/                 Maven 父工程（Spring Boot 3.5 · Java 21）
 │   ├── aivideo-common/      通用：枚举、请求 / 响应基类、业务异常 BizException
-│   ├── aivideo-ai/          AI 核心：统一模型、策略接口、工厂、Mock、提示词润色编排
+│   ├── aivideo-ai-core/          AI 核心：统一模型、策略接口、工厂、Mock、提示词润色编排
 │   ├── aivideo-ai-channel-dashscope/ 阿里云百炼：万相视频、万相图片、千问润色及客户端配置
 │   ├── aivideo-ai-channel-gemini/   Google Gemini：Omni Flash 视频、Nano Banana 图片及客户端配置
 │   ├── aivideo-dao/         数据访问（MyBatis-Plus）：实体、Mapper 接口、Mapper XML
 │   ├── aivideo-server/      前台服务：用户登录、图片/视频生成、费用与耗时统计
-│   ├── aivideo-admin/       管理服务：管理员登录、用户/会员管理、全站生成记录
+│   ├── aivideo-admin/       管理服务：管理员登录、用户管理、全站生成记录
 │   └── sql/                 数据库脚本（手动执行）
 │       ├── ddl.sql          DDL：建表（视频：t_model_config、t_video_task；文生图：t_image_model_config、t_image_task）
 │       └── dml.sql          DML：初始化数据（视频模型与单价、文生图模型与单价）
 └── frontend/
     ├── user-frontend/       用户前台 Vue 3.5 · Vite 6（图片/视频生成）
-    └── admin-frontend/      管理后台 Vue 3.5 · Vite 6（用户、会员、生成记录）
+    └── admin-frontend/      管理后台 Vue 3.5 · Vite 6（用户、生成记录）
 ```
 
-用户密钥的部署、数据库升级及接口详见 [用户厂商密钥](docs/user-channel-keys.md)。已有环境必须先完成凭证表和任务字段升级，并为用户服务配置加密主密钥。
+用户密钥的部署、数据库结构及接口详见 [用户厂商密钥](docs/user-channel-keys.md)。已有环境已完成凭证表和任务字段升级；用户服务的加密主密钥见配置文件。
+
+会员功能已移除。已有数据库的清理脚本为 [20261113_remove_membership.sql](backend/sql/20261113_remove_membership.sql)，发布与执行顺序见 [管理后台说明](docs/admin-api.md)。新建库的 `ddl.sql` 已同步移除相关表和字段。
 
 模块依赖：
 
 ```
 aivideo-server
-├──► aivideo-ai-channel-dashscope ──► aivideo-ai
-├──► aivideo-ai-channel-gemini ─────► aivideo-ai
-├──► aivideo-ai ──► aivideo-common
+├──► aivideo-ai-channel-dashscope ──► aivideo-ai-core
+├──► aivideo-ai-channel-gemini ─────► aivideo-ai-core
+├──► aivideo-ai-core ──► aivideo-common
 └──► aivideo-dao ──► aivideo-common
 
 aivideo-admin ──► aivideo-dao ──► aivideo-common
 ```
 
-`aivideo-ai` 和 `aivideo-dao` 互不依赖，也不依赖 server。两个厂商模块依赖 `aivideo-ai`，彼此不依赖；HTTP、JSON 和 LangChain4j 等调用依赖放在对应厂商模块。前台服务默认端口为 18088，管理服务默认端口为 18089。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别七个模块。
+`aivideo-ai-core` 和 `aivideo-dao` 互不依赖，也不依赖 server。两个厂商模块依赖 `aivideo-ai-core`，彼此不依赖；HTTP、JSON 和 LangChain4j 等调用依赖放在对应厂商模块。前台服务默认端口为 18088，管理服务默认端口为 18089。在 IDEA 中添加 `backend/pom.xml` 作为 Maven 项目即可识别七个模块。
 
 ## 技术选型
 
@@ -69,9 +71,9 @@ aivideo-admin ──► aivideo-dao ──► aivideo-common
 
 `ModelConfigVO`、`VideoTaskVO.CostVO` 这类只作为列表元素或嵌套字段的对象，不单独返回，所以不继承 `BaseResponse`。
 
-### aivideo-ai（`com.sun.aivideo.ai`）：策略 + 工厂
+### aivideo-ai-core（`com.sun.aivideo.ai`）：AI 调用公共核心
 
-提供统一请求 / 结果模型、策略接口、工厂、Mock 和提示词润色编排，不依赖具体厂商模块、数据库和 Web 层。真实模型调用放在对应的厂商模块。
+提供统一请求 / 结果模型、策略接口、工厂、调用凭证上下文、Mock 和提示词润色编排，不依赖具体厂商模块、数据库和 Web 层。真实模型调用放在对应的厂商模块。
 
 ```
 ├── video/
@@ -88,6 +90,7 @@ aivideo-admin ──► aivideo-dao ──► aivideo-common
 │   │   └── MockLlmStrategy               本地模拟（不计费）
 │   └── model/                            LlmChatRequest、LlmChatResponse、PromptEnhanceResult
 ├── image/        文生图策略接口、工厂、统一模型、MockImageStrategy
+├── auth/         ChannelCredentials 调用凭证上下文、ProviderErrors 厂商错误转换
 ├── config/       AiCoreConfig、LlmProperties、MockVideoProperties
 └── exception/    AiClientException
 ```
@@ -112,7 +115,7 @@ aivideo-ai-channel-gemini/（com.sun.aivideo.ai.gemini）
 扩展方式：
 - **新增视频厂商**（可灵、火山引擎 Seedance 等）：
   1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
-  2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，按接口的凭证参数设置本次调用的鉴权信息；
+  2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai-core`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，按接口的凭证参数设置本次调用的鉴权信息；
   3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
 
   工厂会自动收录新策略，前端的**厂商下拉框**也会自动出现这个厂商，server 不用改。只往表里插了模型、还没写策略的厂商，不会出现在前端。
@@ -169,7 +172,7 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 1. `POST /api/videos`：校验参数，写入任务（状态 `SUBMITTING`），立即返回。
 2. 后台线程：可选的千问润色（记录耗时和 tokens），然后调用百炼创建任务，状态变为 `PENDING`。
-3. 定时任务每 15 秒轮询一次百炼（`aivideo.polling.interval-ms: 15000`），成功后：
+3. 前端每 10 秒刷新任务状态；后端定时任务在每轮查询结束后间隔 10 秒轮询厂商（`aivideo.polling.interval-ms: 10000`），成功后：
    - **视频费用** = 模型单价（元/秒，按分辨率） × 百炼返回的计费秒数 `usage.duration`
    - **润色费用** = 输入 tokens × 输入单价 + 输出 tokens × 输出单价
    - **总费用** = 视频费用 + 润色费用。任务失败时视频不计费，只保留润色费用。
@@ -214,7 +217,7 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 
 | 变量 | uat | pro | 说明 |
 |---|---|---|---|
-| `AIVIDEO_CREDENTIAL_MASTER_KEY` | **必填** | **必填** | Base64 编码的 32 字节加密主密钥，安全持久保存 |
+| `AIVIDEO_CREDENTIAL_MASTER_KEY` | 可选覆盖 | 可选覆盖 | 默认使用 application.yml 中已生成的固定主密钥；覆盖时需为 Base64 编码的 32 字节密钥 |
 | `AIVIDEO_CREDENTIAL_KEY_ID` | 默认 `v1` | 默认 `v1` | 主密钥版本标识 |
 | `AIVIDEO_MOCK_ENABLED` | 默认 `false` | 禁止 `true` | 显式开发模拟模式，缺少个人 Key 不自动模拟 |
 | `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` | 可选 | 可选 | 国内直连 Google 不通时的 HTTP 代理，例如 `127.0.0.1` / `7890`；也可以把 `aivideo.gemini.base-url` 改成中转地址 |
@@ -238,7 +241,7 @@ pro 启动时会检查配置：加密主密钥未配置或格式不正确、数�
 
 启动前请确认表已经手动建好（见上文"环境"一节），并且 RDS 白名单里有本机的公网 IP。
 
-在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD` 和 `REDIS_PASSWORD`和 `AIVIDEO_CREDENTIAL_MASTER_KEY`（生成方法见用户厂商密钥文档），工作目录设为 `backend/aivideo-server`。
+在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD` 和 `REDIS_PASSWORD`，工作目录设为 `backend/aivideo-server`。加密主密钥默认读取 `application.yml` 中已生成的固定值，也可用 `AIVIDEO_CREDENTIAL_MASTER_KEY` 覆盖。
 
 命令行启动（PowerShell，在项目根目录执行；会自动编译前台服务依赖的模块）：
 
@@ -274,7 +277,7 @@ mvn -pl aivideo-admin -am spring-boot:run
 
 ### UAT 部署
 
-后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD`、`REDIS_PASSWORD` 和必填的 `AIVIDEO_CREDENTIAL_MASTER_KEY`）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
+后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD`、`REDIS_PASSWORD`，主密钥默认读取配置文件）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
 
 ### PRO 生产部署
 

@@ -112,7 +112,7 @@ import { useNow } from '@/composables/useNow'
 defineProps({ status: { type: Object, default: () => ({}) } })
 
 const PAGE_SIZE = 24
-const POLL_MS = 3000
+const POLL_MS = 10000
 const toast = useToast()
 const now = useNow()
 

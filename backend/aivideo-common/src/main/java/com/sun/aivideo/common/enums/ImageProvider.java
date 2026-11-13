@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 文生图厂商。新增厂商时在此加一个枚举值，并在 aivideo-ai 中实现 ImageGenerationStrategy，
+ * 文生图厂商。新增厂商时在此加一个枚举值，并在对应 aivideo-ai-channel-* 模块中实现 ImageGenerationStrategy，
  * 前端「文生图」模式下的厂商下拉框会自动出现。
  */
 @Getter

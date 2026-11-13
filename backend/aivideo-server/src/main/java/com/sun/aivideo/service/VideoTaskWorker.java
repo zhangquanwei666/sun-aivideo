@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 视频任务的后台执行者（调用 aivideo-ai 模块）：
+ * 视频任务的后台执行者（调用 aivideo-ai-core 模块）：
  * <ol>
  *     <li>submitAsync：千问润色提示词 → 调用厂商创建任务（记录润色耗时与 tokens 费用）</li>
  *     <li>pollActiveTasks：由定时任务调用，轮询厂商状态；成功后计算视频费用、各阶段耗时并下载视频</li>

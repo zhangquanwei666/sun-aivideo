@@ -9,8 +9,7 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '总览' } },
       { path: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '用户管理' } },
-      { path: 'records', component: () => import('@/views/RecordsView.vue'), meta: { title: '生成记录' } },
-      { path: 'members', component: () => import('@/views/MemberRecordsView.vue'), meta: { title: '会员流水' } }
+      { path: 'records', component: () => import('@/views/RecordsView.vue'), meta: { title: '生成记录' } }
     ]
   }
 ]

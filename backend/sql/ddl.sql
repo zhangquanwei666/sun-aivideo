@@ -12,9 +12,8 @@
 --   t_video_task          视频生成任务（每条视频的请求参数、生成结果、各阶段耗时与费用）
 --   t_image_model_config  文生图模型配置与单价（按张计价，支持人民币 / 美元）
 --   t_image_task          文生图任务（每张图片的请求参数、生成结果、耗时与费用）
---   t_user                前台用户（注册登录、会员等级与到期时间）
+--   t_user                前台用户（注册登录、账号状态）
 --   t_admin               管理后台账号（与前台用户分开）
---   t_member_record       会员变更记录（开通、续期、取消）
 -- ============================================================================
 
 
@@ -216,10 +215,9 @@ CREATE TABLE IF NOT EXISTS t_image_task (
 
 -- ----------------------------------------------------------------------------
 -- 5. 前台用户表 t_user
---    用途：前台（视频生成站）的用户账号。所有人都可以注册，注册后为普通用户；
---          启用状态的用户配置个人厂商密钥后即可生成，会员字段供独立会员功能使用。
---    会员是否有效：member_level = 'VIP'，且 member_expire_at 为空（永久）或晚于当前时间。
---    关联：t_video_task.user_id、t_image_task.user_id、t_member_record.user_id → t_user.id
+--    用途：前台（视频生成站）的用户账号。所有人都可以注册；
+--          启用状态的用户配置个人厂商密钥后即可生成。
+--    关联：t_video_task.user_id、t_image_task.user_id、t_user_channel_credential.user_id → t_user.id
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS t_user (
     id                BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（用户 ID）',
@@ -227,8 +225,6 @@ CREATE TABLE IF NOT EXISTS t_user (
     password_hash     VARCHAR(100)   NOT NULL COMMENT 'BCrypt 加密后的密码（不保存明文）',
     nickname          VARCHAR(32)    NULL     COMMENT '昵称，为空时前端显示登录名',
     avatar            VARCHAR(512)   NULL     COMMENT '头像地址',
-    member_level      VARCHAR(16)    NOT NULL DEFAULT 'NORMAL' COMMENT '会员等级：NORMAL 普通用户 / VIP 会员',
-    member_expire_at  DATETIME       NULL     COMMENT '会员到期时间；member_level 为 VIP 且此字段为空表示永久会员',
     status            VARCHAR(16)    NOT NULL DEFAULT 'ENABLED' COMMENT '账号状态：ENABLED 正常 / DISABLED 已禁用（禁止登录）',
     register_ip       VARCHAR(64)    NULL     COMMENT '注册时的 IP',
     last_login_at     DATETIME       NULL     COMMENT '最近一次登录时间',
@@ -237,7 +233,7 @@ CREATE TABLE IF NOT EXISTS t_user (
     created_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
     updated_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_user_username (username)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '前台用户（含会员信息）';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '前台用户';
 
 
 -- ----------------------------------------------------------------------------
@@ -258,26 +254,6 @@ CREATE TABLE IF NOT EXISTS t_admin (
     updated_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_admin_username (username)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '管理后台账号';
-
-
--- ----------------------------------------------------------------------------
--- 7. 会员变更记录表 t_member_record
---    用途：管理员每次为用户开通、续期、取消会员都记录一条，便于追溯谁在什么时候做了什么。
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS t_member_record (
-    id                BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
-    user_id           BIGINT         NOT NULL COMMENT '用户 ID，关联 t_user.id',
-    action            VARCHAR(16)    NOT NULL COMMENT '动作：OPEN 开通 / 续期，REVOKE 取消会员',
-    member_level      VARCHAR(16)    NOT NULL COMMENT '变更后的会员等级：NORMAL / VIP',
-    days              INT            NULL     COMMENT '本次开通 / 续期的天数；为空表示永久（取消时为空）',
-    expire_before     DATETIME       NULL     COMMENT '变更前的会员到期时间',
-    expire_after      DATETIME       NULL     COMMENT '变更后的会员到期时间；为空表示永久或已取消',
-    operator_id       BIGINT         NOT NULL COMMENT '操作的管理员 ID，关联 t_admin.id',
-    operator_name     VARCHAR(32)    NOT NULL COMMENT '操作的管理员登录名（冗余，便于查看）',
-    remark            VARCHAR(255)   NULL     COMMENT '备注，如收款方式、订单号',
-    created_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
-    KEY idx_member_record_user (user_id) COMMENT '查询某个用户的会员记录'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '会员变更记录';
 
 
 -- ============================================================================
@@ -302,8 +278,8 @@ CREATE TABLE IF NOT EXISTS t_member_record (
 -- ALTER TABLE t_video_task
 --     ADD COLUMN currency VARCHAR(8) NULL COMMENT '单价币种：CNY / USD，取自 t_model_config.currency' AFTER billed_duration;
 
--- [2026-11-12] 新增用户登录与会员：新建 t_user、t_admin、t_member_record 三张表，任务表增加 user_id
---   1) 直接执行上面第 5、6、7 段的三条 CREATE TABLE 语句（已存在时会跳过）；
+-- [2026-11-12] 新增用户登录：新建 t_user、t_admin 两张表，任务表增加 user_id
+--   1) 直接执行上面第 5、6 段的两条 CREATE TABLE 语句（已存在时会跳过）；
 --   2) 执行下面两条 ALTER，给视频、图片任务加上所属用户；
 --   3) 历史任务的 user_id 为空，只在管理后台可见；如需归到某个用户，见 dml.sql 第 3 段。
 -- ALTER TABLE t_video_task
@@ -314,7 +290,7 @@ CREATE TABLE IF NOT EXISTS t_member_record (
 --     ADD KEY idx_image_task_user (user_id) COMMENT '按用户查询生成记录与统计费用';
 
 
--- 用户自维护厂商凭证；现有库升级请执行 20261113_user_channel_credentials.sql
+-- 用户自维护厂商凭证
 CREATE TABLE IF NOT EXISTS t_user_channel_credential (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
