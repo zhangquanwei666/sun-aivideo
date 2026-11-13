@@ -1,6 +1,7 @@
 package com.sun.aivideo.ai.dashscope.llm;
 
-import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
+import com.sun.aivideo.ai.auth.ChannelCredentials;
+import com.sun.aivideo.common.enums.AiChannel;
 import com.sun.aivideo.ai.llm.strategy.LlmStrategy;
 import com.sun.aivideo.ai.config.LlmProperties;
 import com.sun.aivideo.ai.exception.AiClientException;
@@ -30,20 +31,8 @@ public class QwenLlmStrategy implements LlmStrategy {
     private static final double DEFAULT_TEMPERATURE = 0.7;
 
     private final LlmProperties llmProperties;
-    /** 未配置 API Key 时为 null */
-    private final ChatModel chatModel;
-
-    public QwenLlmStrategy(DashScopeProperties dashScopeProperties, LlmProperties llmProperties) {
+    public QwenLlmStrategy(LlmProperties llmProperties) {
         this.llmProperties = llmProperties;
-        this.chatModel = dashScopeProperties.hasApiKey()
-                ? OpenAiChatModel.builder()
-                    .baseUrl(llmProperties.getBaseUrl())
-                    .apiKey(dashScopeProperties.getApiKey())
-                    .modelName(llmProperties.getModelName())
-                    .temperature(DEFAULT_TEMPERATURE)
-                    .timeout(Duration.ofSeconds(llmProperties.getTimeoutSeconds()))
-                    .build()
-                : null;
     }
 
     @Override
@@ -52,20 +41,20 @@ public class QwenLlmStrategy implements LlmStrategy {
     }
 
     @Override
-    public boolean available() {
-        return chatModel != null;
-    }
-
-    @Override
     public String modelName() {
         return llmProperties.getModelName();
     }
 
     @Override
-    public LlmChatResponse chat(LlmChatRequest request) {
-        if (chatModel == null) {
-            throw new AiClientException("LLM_NOT_CONFIGURED", "千问未配置 API Key");
-        }
+    public LlmChatResponse chat(LlmChatRequest request, ChannelCredentials credentials) {
+        ChatModel chatModel = OpenAiChatModel.builder()
+                .baseUrl(llmProperties.getBaseUrl())
+                .apiKey(credentials.keyFor(AiChannel.DASHSCOPE))
+                .modelName(llmProperties.getModelName())
+                .temperature(DEFAULT_TEMPERATURE)
+                .timeout(Duration.ofSeconds(llmProperties.getTimeoutSeconds()))
+                .maxRetries(0)
+                .build();
         ChatRequest.Builder builder = ChatRequest.builder();
         if (StringUtils.hasText(request.getSystemPrompt())) {
             builder.messages(SystemMessage.from(request.getSystemPrompt()), UserMessage.from(request.getUserPrompt()));
@@ -81,7 +70,7 @@ public class QwenLlmStrategy implements LlmStrategy {
         try {
             response = chatModel.chat(builder.build());
         } catch (RuntimeException e) {
-            throw new AiClientException("LLM_ERROR", "调用千问失败：" + e.getMessage(), e);
+            throw new AiClientException("LLM_ERROR", "调用千问失败，请检查个人百炼密钥、模型权限、额度或网络");
         }
         long elapsed = System.currentTimeMillis() - start;
 

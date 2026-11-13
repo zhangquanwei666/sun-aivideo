@@ -26,8 +26,8 @@ aivideo:
   storage:
     base-dir: ${AIVIDEO_DATA_DIR:/data/aivideo}
   mock:
-    # 生产禁止 Mock：没配 DASHSCOPE_API_KEY 时启动失败
-    when-no-key: false
+    # 生产禁止开启 Mock，个人 Key 缺失不影响服务启动
+    enabled: false
 
 logging:
   file:

@@ -53,8 +53,11 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     private final CostService costService;
     private final VideoGenerationStrategyFactory videoStrategyFactory;
     private final VideoTaskWorker videoTaskWorker;
+    private final com.sun.aivideo.service.ChannelCredentialService credentials;
+    private final com.sun.aivideo.service.TaskDispatch taskDispatch;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public VideoTaskVO create(VideoGenerateDTO dto) {
         ModelConfig model = modelConfigService.getEnabledByCode(dto.getModelCode());
         VideoMode mode = resolveMode(dto, model);
@@ -65,8 +68,14 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         }
 
         VideoTask task = new VideoTask();
-        task.setUserId(StpUtil.getLoginIdAsLong());
-        task.setProvider(videoStrategyFactory.resolveForNewTask(model.getProvider()).provider().name());
+        Long userId = StpUtil.getLoginIdAsLong();
+        credentials.lockUser(userId);
+        task.setUserId(userId);
+        videoStrategyFactory.getStrategy(model.getProvider());
+        task.setProvider(videoStrategyFactory.isMockMode() ? "MOCK" : model.getProvider());
+        if (!"MOCK".equals(task.getProvider())) {
+            task.setCredentialVersionId(credentials.requiredVersion(userId, model.getProvider()));
+        }
         task.setModelCode(model.getModelCode());
         task.setMode(mode.name());
         task.setStatus(TaskStatus.SUBMITTING.name());
@@ -77,6 +86,9 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         task.setRatio(ratio);
         task.setDuration(dto.getDuration());
         task.setEnhancePrompt(Boolean.TRUE.equals(dto.getEnhancePrompt()) && promptEnhancer.available());
+        if (Boolean.TRUE.equals(task.getEnhancePrompt()) && !"MOCK".equals(task.getProvider())) {
+            task.setLlmCredentialVersionId(credentials.requiredVersion(userId, "DASHSCOPE"));
+        }
         task.setCurrency(model.getCurrency());
         task.setPromptExtend(!Boolean.FALSE.equals(dto.getPromptExtend()));
         task.setWatermark(Boolean.TRUE.equals(dto.getWatermark()));
@@ -91,7 +103,12 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         videoTaskMapper.insert(task);
         log.info("创建视频任务 id={} model={} provider={}", task.getId(), task.getModelCode(), task.getProvider());
 
-        videoTaskWorker.submitAsync(task.getId());
+        taskDispatch.afterCommit(() -> videoTaskWorker.submitAsync(task.getId()), () -> {
+            VideoTask rejected = new VideoTask(); rejected.setId(task.getId());
+            rejected.setStatus(TaskStatus.FAILED.name()); rejected.setErrorCode("SERVER_BUSY");
+            rejected.setErrorMessage("生成队列已满，请稍后重试；未调用厂商");
+            rejected.setFinishedAt(LocalDateTime.now()); videoTaskMapper.updateById(rejected);
+        });
         return VideoTaskConverter.toVO(task, model, estimate(task, model));
     }
 
@@ -244,6 +261,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
 
     /** 未完成任务的预估费用：单价 × 请求时长 + 已产生的润色费用 */
     private BigDecimal estimate(VideoTask task, ModelConfig model) {
+        if ("MOCK".equals(task.getProvider())) return BigDecimal.ZERO;
         if (model == null) {
             return null;
         }

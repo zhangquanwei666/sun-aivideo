@@ -12,9 +12,11 @@ public class ProviderVO {
     private String code;
     /** 展示名称，如 阿里云百炼 */
     private String name;
-    /** 是否可以真实调用（已配置该厂商的 API Key） */
+    /** 当前用户是否已配置并启用此厂商 Key；不保证权限和余额 */
     private Boolean available;
-    /** 不可用时是否会退回 Mock（不扣费） */
+    /** 平台是否已接入，与用户是否已配置凭证分开。 */
+    private Boolean supported;
+    /** 兼容字段：个人密钥模式不自动回退，始终为 false */
     private Boolean mockFallback;
     /** 该厂商下已启用的模型数量 */
     private Integer modelCount;

@@ -1,6 +1,5 @@
 package com.sun.aivideo.config;
 
-import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
 import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.llm.PromptEnhancer;
 import jakarta.annotation.PostConstruct;
@@ -21,7 +20,6 @@ import java.util.Arrays;
 public class EnvironmentChecker {
 
     private final Environment environment;
-    private final DashScopeProperties dashScopeProperties;
     private final MockVideoProperties mockProperties;
     private final PromptEnhancer promptEnhancer;
 
@@ -37,9 +35,8 @@ public class EnvironmentChecker {
 
     @PostConstruct
     public void check() {
-        boolean hasKey = dashScopeProperties.hasApiKey();
-        if (!hasKey && !mockProperties.isWhenNoKey()) {
-            throw new IllegalStateException("当前环境 [" + currentEnv() + "] 禁止 Mock，请配置环境变量 DASHSCOPE_API_KEY");
+        if (isProduction() && mockProperties.isEnabled()) {
+            throw new IllegalStateException("生产环境不能开启 aivideo.mock.enabled");
         }
         String password = environment.getProperty("spring.datasource.password", "");
         if (isProduction() && ("XXXX".equals(password) || !StringUtils.hasText(password))) {
@@ -48,7 +45,7 @@ public class EnvironmentChecker {
         log.info("当前环境：{} | 数据库：{} | 视频生成：{} | 提示词润色：{}",
                 currentEnv(),
                 maskUrl(environment.getProperty("spring.datasource.url", "")),
-                !dashScopeProperties.hasApiKey() && mockProperties.isWhenNoKey() ? "Mock" : "百炼",
+                mockProperties.isEnabled() ? "显式 Mock" : "用户自有密钥",
                 promptEnhancer.available() ? promptEnhancer.currentModelName() : "未启用");
     }
 

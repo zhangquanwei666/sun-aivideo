@@ -20,6 +20,8 @@ public class VideoTask {
     private Long id;
     /** 提交任务的用户，关联 t_user.id */
     private Long userId;
+    private Long credentialVersionId;
+    private Long llmCredentialVersionId;
     /** 实际调用的厂商：DASHSCOPE / MOCK */
     private String provider;
     private String modelCode;
@@ -37,6 +39,7 @@ public class VideoTask {
     private String ratio;
     private Integer duration;
     private Boolean enhancePrompt;
+    private String enhanceWarning;
     private Boolean promptExtend;
     private Boolean watermark;
     private Boolean audio;

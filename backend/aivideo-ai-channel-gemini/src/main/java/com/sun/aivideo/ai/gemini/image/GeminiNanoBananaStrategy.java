@@ -1,11 +1,13 @@
 package com.sun.aivideo.ai.gemini.image;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
+import com.sun.aivideo.ai.auth.ProviderErrors;
+import com.sun.aivideo.common.enums.AiChannel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.aivideo.ai.gemini.config.GeminiClientConfig;
-import com.sun.aivideo.ai.gemini.config.GeminiProperties;
 import com.sun.aivideo.ai.image.strategy.ImageGenerationStrategy;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
@@ -40,14 +42,11 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final GeminiProperties geminiProperties;
 
     public GeminiNanoBananaStrategy(@Qualifier(GeminiClientConfig.IMAGE_REST_CLIENT) RestClient restClient,
-                                    ObjectMapper objectMapper,
-                                    GeminiProperties geminiProperties) {
+                                    ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
-        this.geminiProperties = geminiProperties;
     }
 
     @Override
@@ -56,13 +55,8 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
     }
 
     @Override
-    public boolean available() {
-        return geminiProperties.hasApiKey();
-    }
-
-    @Override
-    public ImageGenerateResult generate(ImageGenerateRequest req) {
-        JsonNode resp = call(req.getModelCode(), buildBody(req));
+    public ImageGenerateResult generate(ImageGenerateRequest req, ChannelCredentials credentials) {
+        JsonNode resp = call(req.getModelCode(), buildBody(req), credentials);
 
         List<GeneratedImage> images = new ArrayList<>();
         StringBuilder texts = new StringBuilder();
@@ -84,7 +78,7 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
             }
         }
         if (images.isEmpty()) {
-            throw new AiClientException(failureCode(resp), "Gemini 未返回图片：" + failureReason(resp, texts.toString()));
+            throw new AiClientException("NO_IMAGE", "Gemini 未返回图片，请检查提示词、模型权限或配额");
         }
 
         JsonNode usage = resp.path("usageMetadata");
@@ -121,10 +115,11 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
         return root;
     }
 
-    private JsonNode call(String model, ObjectNode body) {
+    private JsonNode call(String model, ObjectNode body, ChannelCredentials credentials) {
         try {
             JsonNode resp = restClient.post()
                     .uri(GENERATE_PATH, model)
+                    .header("x-goog-api-key", credentials.keyFor(AiChannel.GEMINI))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
@@ -134,19 +129,9 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
             }
             return resp;
         } catch (RestClientResponseException e) {
-            String message = e.getResponseBodyAsString();
-            String code = "HTTP_" + e.getStatusCode().value();
-            try {
-                JsonNode err = objectMapper.readTree(message).path("error");
-                code = err.path("status").asText(code);
-                message = err.path("message").asText(message);
-            } catch (Exception ignore) {
-                // 非 JSON 错误体，直接透传
-            }
-            throw new AiClientException(code, "Gemini 接口错误(HTTP " + e.getStatusCode().value() + ")：" + message, e);
+            throw ProviderErrors.http(e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new AiClientException("NETWORK_ERROR",
-                    "调用 Gemini 失败：" + e.getMessage() + "（国内网络请配置 aivideo.gemini.proxy-host / proxy-port 或中转地址）", e);
+            throw ProviderErrors.network();
         }
     }
 
@@ -156,16 +141,6 @@ public class GeminiNanoBananaStrategy implements ImageGenerationStrategy {
             return block;
         }
         return resp.path("candidates").path(0).path("finishReason").asText("NO_IMAGE");
-    }
-
-    private static String failureReason(JsonNode resp, String texts) {
-        String block = resp.path("promptFeedback").path("blockReason").asText(null);
-        if (StringUtils.hasText(block)) {
-            return "提示词被安全策略拦截（" + block + "）";
-        }
-        String finish = resp.path("candidates").path(0).path("finishReason").asText(null);
-        String detail = StringUtils.hasText(texts) ? texts.trim() : "";
-        return (StringUtils.hasText(finish) ? "finishReason=" + finish + " " : "") + detail;
     }
 
     /** 解析 data:image/png;base64,xxxx */

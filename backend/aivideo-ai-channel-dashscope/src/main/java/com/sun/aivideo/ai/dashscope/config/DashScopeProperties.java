@@ -11,11 +11,7 @@ import org.springframework.util.StringUtils;
 @ConfigurationProperties(prefix = "aivideo.dashscope")
 public class DashScopeProperties {
 
-    private String apiKey;
     private String baseUrl = "https://dashscope.aliyuncs.com";
     private int connectTimeoutSeconds = 10;
     private int readTimeoutSeconds = 60;
-    public boolean hasApiKey() {
-        return StringUtils.hasText(apiKey);
-    }
 }

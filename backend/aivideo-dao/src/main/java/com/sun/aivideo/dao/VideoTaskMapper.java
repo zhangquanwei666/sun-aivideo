@@ -35,6 +35,8 @@ public interface VideoTaskMapper extends BaseMapper<VideoTask> {
      */
     List<VideoTask> selectActiveTasks(@Param("statuses") Collection<String> statuses);
 
+    int failStaleSubmissions(@Param("timeoutMinutes") int timeoutMinutes);
+
     /**
      * 逻辑删除：deleted 置为 1 并记录删除时间，已删除的记录不会重复处理。
      * 对应 XML：softDeleteById

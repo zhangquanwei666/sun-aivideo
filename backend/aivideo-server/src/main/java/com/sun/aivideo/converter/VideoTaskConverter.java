@@ -44,6 +44,7 @@ public final class VideoTaskConverter {
         vo.setRatio(t.getRatio());
         vo.setDuration(t.getDuration());
         vo.setEnhancePrompt(t.getEnhancePrompt());
+        vo.setEnhanceWarning(t.getEnhanceWarning());
         vo.setPromptExtend(t.getPromptExtend());
         vo.setSeed(t.getSeed());
 

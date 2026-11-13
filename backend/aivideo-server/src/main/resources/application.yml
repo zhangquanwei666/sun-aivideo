@@ -35,6 +35,9 @@ mybatis-plus:
       id-type: auto
 
 aivideo:
+  credentials:
+    master-key: ${AIVIDEO_CREDENTIAL_MASTER_KEY:}
+    key-id: ${AIVIDEO_CREDENTIAL_KEY_ID:v1}
   cors:
     # 允许跨域的前端地址；生产环境前后端同域部署时可以不配
     allowed-origin-patterns:
@@ -48,16 +51,14 @@ aivideo:
     download-video: true
 
   dashscope:
-    # 百炼 API Key，通过环境变量 DASHSCOPE_API_KEY 注入，不要写进代码仓库
-    api-key: ${DASHSCOPE_API_KEY:}
+    # API Key 由用户在“模型密钥”中维护；这里仅维护平台连接参数
     # 华北2（北京）地域；也可换成 https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com
     base-url: https://dashscope.aliyuncs.com
     connect-timeout-seconds: 10
     read-timeout-seconds: 60
 
   gemini:
-    # Google Gemini API Key（Nano Banana 文生图 + Omni Flash 视频），通过环境变量 GEMINI_API_KEY 注入；不配时 Gemini 走 Mock
-    api-key: ${GEMINI_API_KEY:}
+    # API Key 由用户维护，图片和视频按任务绑定用户凭证
     # 文生图接口地址（含版本号）；国内直连不通时可换成自己的中转地址
     base-url: https://generativelanguage.googleapis.com/v1
     # 视频接口地址（Omni Flash 的 Interactions API 目前在 v1beta）
@@ -78,7 +79,7 @@ aivideo:
   llm:
     # 生成前用大模型润色/扩写提示词
     enabled: true
-    # 大模型厂商（策略）：qwen / mock；没配 API Key 且允许 Mock 时自动退回 mock
+    # 大模型策略：qwen；用户需配置百炼 Key。Mock 仅由显式开发模式开启
     provider: qwen
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
     model-name: qwen-plus
@@ -94,8 +95,8 @@ aivideo:
     timeout-minutes: 30
 
   mock:
-    # 所选厂商未配置 API Key 时是否回退 Mock；生产环境在 application-pro.yml 中关闭
-    when-no-key: true
+    # 显式开发模拟开关；缺少个人 Key 时不会自动模拟
+    enabled: false
     # Mock 模式下返回的示例视频（Big Buck Bunny，CC BY 3.0）
     video-url: https://www.w3schools.com/html/mov_bbb.mp4
     # 模拟生成耗时（秒）

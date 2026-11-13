@@ -2,7 +2,8 @@
   <div class="page">
     <header class="page-header">
       <div>
-        <h1 class="page-title">用量与费用</h1>
+        <h1 class="page-title">用量与参考费用</h1>
+        <p class="page-sub">费用按模型参考单价估算，实际扣费、免费额度和折扣以你的厂商账单为准。</p>
         <p class="page-sub">
           视频与文生图的费用和耗时 · 合计花费 <span class="num">{{ money(Number(stats?.totalCost || 0) + Number(imageStats?.totalCost || 0)) }}</span>
         </p>

@@ -8,6 +8,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ErrorCode {
     BAD_REQUEST(400, "请求参数错误"),
+    INVALID_CHANNEL(400, "厂商渠道未接入"),
+    INVALID_CHANNEL_KEY(400, "密钥格式不正确，请输入完整密钥（8~2048 位，不含空白）"),
+    CHANNEL_KEY_REQUIRED(400, "请先在模型密钥中配置并启用%s的 Key"),
+    CHANNEL_KEY_IN_USE(400, "此厂商仍有未完成任务，请等待任务结束后再删除密钥"),
+    CHANNEL_KEY_UNAVAILABLE(400, "任务绑定的密钥不可用，请检查配置；历史任务不会自动使用新账户重试"),
     UNAUTHORIZED(401, "请先登录或登录已过期"),
     FORBIDDEN(403, "无权限执行此操作"),
     NOT_FOUND(404, "资源不存在"),

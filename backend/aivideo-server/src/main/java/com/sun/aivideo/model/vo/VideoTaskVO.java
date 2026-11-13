@@ -17,11 +17,11 @@ import java.time.LocalDateTime;
 public class VideoTaskVO extends BaseResponse {
 
     private Long id;
-    /** 实际调用的厂商编码（未配置 Key 时为 MOCK） */
+    /** 实际调用的厂商编码（显式开发模拟时为 MOCK） */
     private String provider;
     /** 实际调用的厂商展示名称 */
     private String providerName;
-    /** 是否为 Mock 结果（未配置 API Key 时） */
+    /** 是否为 Mock 结果（显式开发模拟模式） */
     private Boolean mock;
     private String modelCode;
     private String modelName;
@@ -38,6 +38,7 @@ public class VideoTaskVO extends BaseResponse {
     private String ratio;
     private Integer duration;
     private Boolean enhancePrompt;
+    private String enhanceWarning;
     private Boolean promptExtend;
     private Long seed;
 

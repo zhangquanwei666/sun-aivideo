@@ -22,7 +22,7 @@ class UserIsolationTest {
 
  @Test void rejectsOtherUsersVideo() {
   var mapper=mock(VideoTaskMapper.class); var task=new VideoTask(); task.setUserId(2L); when(mapper.selectById(10L)).thenReturn(task);
-  var service=new VideoGenerationServiceImpl(mapper,null,null,null,null,null,null);
+  var service=new VideoGenerationServiceImpl(mapper,null,null,null,null,null,null,null,null);
   try(var session=mockStatic(StpUtil.class)) { session.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
    assertThrows(BizException.class,()->service.detail(10L)); assertThrows(BizException.class,()->service.delete(10L));
    verify(mapper,never()).softDeleteById(any(),any());
@@ -30,7 +30,7 @@ class UserIsolationTest {
  }
  @Test void rejectsOtherUsersImageAndLegacyRecord() {
   var mapper=mock(ImageTaskMapper.class); var task=new ImageTask(); when(mapper.selectById(10L)).thenReturn(task);
-  var service=new ImageGenerationServiceImpl(mapper,null,null,null,null,null,null);
+  var service=new ImageGenerationServiceImpl(mapper,null,null,null,null,null,null,null,null);
   try(var session=mockStatic(StpUtil.class)) { session.when(StpUtil::getLoginIdAsLong).thenReturn(1L);
    assertThrows(BizException.class,()->service.detail(10L)); task.setUserId(2L);
    assertThrows(BizException.class,()->service.delete(10L)); verify(mapper,never()).softDeleteById(any(),any());

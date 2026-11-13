@@ -20,6 +20,8 @@ public class ImageTask {
     private Long id;
     /** 提交任务的用户，关联 t_user.id */
     private Long userId;
+    private Long credentialVersionId;
+    private Long llmCredentialVersionId;
     /** 实际调用的厂商：DASHSCOPE / GEMINI / MOCK */
     private String provider;
     private String modelCode;
@@ -31,6 +33,7 @@ public class ImageTask {
     /** 实际提交给模型的提示词（润色后） */
     private String finalPrompt;
     private Boolean enhancePrompt;
+    private String enhanceWarning;
     /** 参考图，逗号分隔的 /files/... 路径 */
     private String referenceImages;
     private String aspectRatio;

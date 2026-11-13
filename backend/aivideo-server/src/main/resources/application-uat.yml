@@ -23,8 +23,8 @@ aivideo:
   storage:
     base-dir: ${AIVIDEO_DATA_DIR:./data}
   mock:
-    # 测试环境没配 Key 时仍可走 Mock 联调
-    when-no-key: true
+    # 测试环境默认使用个人 Key，可显式设置 AIVIDEO_MOCK_ENABLED=true 联调
+    enabled: false
 
 logging:
   level:

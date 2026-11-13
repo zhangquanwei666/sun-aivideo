@@ -37,6 +37,7 @@ public final class ImageTaskConverter {
         vo.setPrompt(t.getPrompt());
         vo.setFinalPrompt(t.getFinalPrompt());
         vo.setEnhancePrompt(t.getEnhancePrompt());
+        vo.setEnhanceWarning(t.getEnhanceWarning());
         vo.setReferenceImages(ModelConfigConverter.split(t.getReferenceImages()));
         vo.setAspectRatio(t.getAspectRatio());
         vo.setImageSize(t.getImageSize());

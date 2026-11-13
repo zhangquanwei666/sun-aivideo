@@ -51,8 +51,11 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     private final PromptEnhancer promptEnhancer;
     private final CostService costService;
     private final ImageTaskWorker imageTaskWorker;
+    private final com.sun.aivideo.service.ChannelCredentialService credentials;
+    private final com.sun.aivideo.service.TaskDispatch taskDispatch;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public ImageTaskVO create(ImageGenerateDTO dto) {
         ImageModelConfig model = imageModelConfigService.getEnabledByCode(dto.getModelCode());
         if (!imageStrategyFactory.isSupported(model.getProvider())) {
@@ -63,12 +66,21 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
                 : dto.getReferenceImages().stream().map(String::trim).filter(StringUtils::hasText).toList();
 
         ImageTask task = new ImageTask();
-        task.setUserId(StpUtil.getLoginIdAsLong());
-        task.setProvider(imageStrategyFactory.resolveForNewTask(model.getProvider()).provider().name());
+        Long userId = StpUtil.getLoginIdAsLong();
+        credentials.lockUser(userId);
+        task.setUserId(userId);
+        imageStrategyFactory.getStrategy(model.getProvider());
+        task.setProvider(imageStrategyFactory.isMockMode() ? "MOCK" : model.getProvider());
+        if (!"MOCK".equals(task.getProvider())) {
+            task.setCredentialVersionId(credentials.requiredVersion(userId, model.getProvider()));
+        }
         task.setModelCode(model.getModelCode());
         task.setStatus(TaskStatus.SUBMITTING.name());
         task.setPrompt(dto.getPrompt().trim());
         task.setEnhancePrompt(Boolean.TRUE.equals(dto.getEnhancePrompt()) && promptEnhancer.available());
+        if (Boolean.TRUE.equals(task.getEnhancePrompt()) && !"MOCK".equals(task.getProvider())) {
+            task.setLlmCredentialVersionId(credentials.requiredVersion(userId, "DASHSCOPE"));
+        }
         task.setReferenceImages(references.isEmpty() ? null : String.join(",", references));
         task.setAspectRatio(ratio);
         task.setImageSize(dto.getImageSize());
@@ -83,7 +95,12 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         imageTaskMapper.insert(task);
         log.info("创建文生图任务 id={} model={} provider={}", task.getId(), task.getModelCode(), task.getProvider());
 
-        imageTaskWorker.generateAsync(task.getId());
+        taskDispatch.afterCommit(() -> imageTaskWorker.generateAsync(task.getId()), () -> {
+            ImageTask rejected = new ImageTask(); rejected.setId(task.getId());
+            rejected.setStatus(TaskStatus.FAILED.name()); rejected.setErrorCode("SERVER_BUSY");
+            rejected.setErrorMessage("生成队列已满，请稍后重试；未调用厂商");
+            rejected.setFinishedAt(LocalDateTime.now()); imageTaskMapper.updateById(rejected);
+        });
         return ImageTaskConverter.toVO(task, model, estimate(task, model));
     }
 
@@ -189,6 +206,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     /** 未完成任务的预估费用：每张单价（人民币）× 张数 + 已产生的润色费用 */
     private BigDecimal estimate(ImageTask task, ImageModelConfig model) {
+        if ("MOCK".equals(task.getProvider())) return BigDecimal.ZERO;
         if (model == null) {
             return null;
         }

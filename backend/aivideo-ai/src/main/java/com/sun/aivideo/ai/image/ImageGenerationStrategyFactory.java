@@ -33,34 +33,16 @@ public class ImageGenerationStrategyFactory {
         log.info("已注册文生图策略：{}", strategies.keySet());
     }
 
-    /**
-     * 新任务实际使用的策略：所选厂商可用 → 该厂商；不可用但允许 Mock → Mock；否则报错。
-     */
-    public ImageGenerationStrategy resolveForNewTask(String providerName) {
-        ImageGenerationStrategy strategy = getStrategy(providerName);
-        if (strategy.available()) {
-            return strategy;
-        }
-        if (allowMockFallback()) {
-            return getStrategy(ImageProvider.MOCK);
-        }
-        throw new AiClientException("PROVIDER_NOT_CONFIGURED",
-                strategy.provider().getLabel() + " 未配置 API Key，当前环境不允许使用 Mock");
-    }
-
     /** 厂商是否已经实现了策略（未实现的厂商不在前端展示） */
     public boolean isSupported(String providerName) {
         ImageProvider provider = ImageProvider.of(providerName);
         return provider != null && provider != ImageProvider.MOCK && strategies.containsKey(provider);
     }
 
-    public boolean isAvailable(String providerName) {
-        return isSupported(providerName) && getStrategy(providerName).available();
-    }
 
-    /** 与视频共用同一个开关：aivideo.mock.when-no-key */
-    public boolean allowMockFallback() {
-        return mockProperties.isWhenNoKey() && strategies.containsKey(ImageProvider.MOCK);
+    /** 与视频共用显式开关：aivideo.mock.enabled */
+    public boolean isMockMode() {
+        return mockProperties.isEnabled() && strategies.containsKey(ImageProvider.MOCK);
     }
 
     public ImageGenerationStrategy getStrategy(String providerName) {

@@ -1,6 +1,6 @@
 # Sun AI Video
 
-前后端分离的 AI 短视频生成项目：视频生成支持阿里云百炼（**通义万相**）和 Google Gemini（**Omni Flash**）两家切换；**文生图**支持阿里云百炼（万相 2.7 图像）和 Google Gemini（Nano Banana）两家切换，生成的图片可以一键作为视频首帧；用**千问**（LangChain4j）润色提示词，并统计每条视频 / 图片的**生成耗时**和**费用**。
+前后端分离的 AI 短视频生成项目：视频生成支持阿里云百炼（**通义万相**）和 Google Gemini（**Omni Flash**）两家切换；**文生图**支持阿里云百炼（万相 2.7 图像）和 Google Gemini（Nano Banana）两家切换，生成的图片可以一键作为视频首帧；用户在“模型密钥”中维护自己的厂商 Key；用**千问**（LangChain4j）润色提示词，并统计每条视频 / 图片的**生成耗时**和**参考费用**。
 
 ```
 sun-aivideo/
@@ -19,6 +19,8 @@ sun-aivideo/
     ├── user-frontend/       用户前台 Vue 3.5 · Vite 6（图片/视频生成）
     └── admin-frontend/      管理后台 Vue 3.5 · Vite 6（用户、会员、生成记录）
 ```
+
+用户密钥的部署、数据库升级及接口详见 [用户厂商密钥](docs/user-channel-keys.md)。已有环境必须先完成凭证表和任务字段升级，并为用户服务配置加密主密钥。
 
 模块依赖：
 
@@ -73,16 +75,16 @@ aivideo-admin ──► aivideo-dao ──► aivideo-common
 
 ```
 ├── video/
-│   ├── VideoGenerationStrategyFactory    工厂：收集所有策略，按 VideoProvider 取用；无 API Key 时返回 Mock
+│   ├── VideoGenerationStrategyFactory    工厂：收集所有策略，按 VideoProvider 取用；凭证由调用方逐次传入
 │   ├── strategy/
 │   │   ├── VideoGenerationStrategy       策略接口：provider() / submit() / query()
 │   │   └── MockVideoStrategy             本地模拟
 │   └── model/                            VideoGenerateRequest、VideoSubmitResult、VideoTaskResult
 ├── llm/
-│   ├── LlmStrategyFactory                工厂：按 aivideo.llm.provider 选择策略，不可用时退回 Mock
+│   ├── LlmStrategyFactory                工厂：按 aivideo.llm.provider 选择策略；Mock 需显式开启
 │   ├── PromptEnhancer                    提示词润色，通过工厂拿到策略后调用
 │   ├── strategy/
-│   │   ├── LlmStrategy                   策略接口：provider() / available() / modelName() / chat()
+│   │   ├── LlmStrategy                   策略接口：provider() / modelName() / chat()
 │   │   └── MockLlmStrategy               本地模拟（不计费）
 │   └── model/                            LlmChatRequest、LlmChatResponse、PromptEnhanceResult
 ├── image/        文生图策略接口、工厂、统一模型、MockImageStrategy
@@ -105,16 +107,16 @@ aivideo-ai-channel-gemini/（com.sun.aivideo.ai.gemini）
 └── image/        GeminiNanoBananaStrategy
 ```
 
-`aivideo-server` 引入 AI 核心和两个厂商模块，Spring 自动扫描并注册策略。配置仍统一放在 server 的 `application*.yml`，现有配置前缀、API Key 环境变量和接口保持不变。
+`aivideo-server` 引入 AI 核心和两个厂商模块，Spring 自动扫描并注册策略。配置仍统一放在 server 的 `application*.yml`，接口地址、代理和超时配置保留；API Key 改由用户在前台维护，不再从全局环境变量读取。
 
 扩展方式：
 - **新增视频厂商**（可灵、火山引擎 Seedance 等）：
   1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
-  2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，在 `available()` 里判断该厂商的 API Key 是否已配置；
+  2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，按接口的凭证参数设置本次调用的鉴权信息；
   3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
 
   工厂会自动收录新策略，前端的**厂商下拉框**也会自动出现这个厂商，server 不用改。只往表里插了模型、还没写策略的厂商，不会出现在前端。
-- **厂商与模型的前端选择**：先选厂商，再选该厂商下的模型。每个厂商单独判断能否真实调用：已配置 Key 的走真实调用；没配置 Key 时，如果允许 Mock 就回退到 Mock（任务的"厂商"会记录为"本地模拟"），否则提交失败并提示未配置 Key。
+- **厂商与模型的前端选择**：先选厂商，再选该厂商下的模型。平台显示已接入厂商，按当前用户的凭证配置判断可用性。缺少或停用个人 Key 时提示前往“模型密钥”配置；不会自动回退 Mock 或使用平台 Key。
 - **新增大模型**（DeepSeek 等）：在 `LlmProvider` 中加一个枚举值，实现 `LlmStrategy` 并加上 `@Component`，再把 `aivideo.llm.provider` 改成新的厂商。
 
 ### aivideo-dao（`com.sun.aivideo.dao` / `entity`）：MyBatis-Plus + XML
@@ -180,8 +182,8 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 | 环境 | 后端 profile | 前端 | 数据库 | 没有 API Key 时 | 日志 |
 |---|---|---|---|---|---|
-| 测试 / 本地开发 | `uat`（**后端默认**） | 开发 `npm run dev`，打包 `npm run build:uat` | 阿里云 RDS `aivideo` | 走 Mock | 控制台，debug |
-| 生产 | `pro` | `npm run build:pro` | 全部来自环境变量 | **启动失败** | 文件，保留 30 天 |
+| 测试 / 本地开发 | `uat`（**后端默认**） | 开发 `npm run dev`，打包 `npm run build:uat` | 阿里云 RDS `aivideo` | 提示配置个人 Key；Mock 需显式开启 | 控制台，debug |
+| 生产 | `pro` | `npm run build:pro` | 全部来自环境变量 | 提示配置个人 Key | 文件，保留 30 天 |
 
 本地开发直接使用 `uat` 环境，不再单独设置本地环境。
 
@@ -212,8 +214,9 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 
 | 变量 | uat | pro | 说明 |
 |---|---|---|---|
-| `DASHSCOPE_API_KEY` | 可选 | **必填** | 百炼 API Key（视频、万相文生图、千问润色共用），uat 不配时走 Mock |
-| `GEMINI_API_KEY` | 可选 | 可选 | Google Gemini API Key（Nano Banana 文生图 + Omni Flash 视频），不配时 Gemini 走 Mock（pro 不允许 Mock，会提示未配置） |
+| `AIVIDEO_CREDENTIAL_MASTER_KEY` | **必填** | **必填** | Base64 编码的 32 字节加密主密钥，安全持久保存 |
+| `AIVIDEO_CREDENTIAL_KEY_ID` | 默认 `v1` | 默认 `v1` | 主密钥版本标识 |
+| `AIVIDEO_MOCK_ENABLED` | 默认 `false` | 禁止 `true` | 显式开发模拟模式，缺少个人 Key 不自动模拟 |
 | `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` | 可选 | 可选 | 国内直连 Google 不通时的 HTTP 代理，例如 `127.0.0.1` / `7890`；也可以把 `aivideo.gemini.base-url` 改成中转地址 |
 | `MYSQL_PASSWORD` | **必填** | **必填** | uat 未配置时为占位符 `XXXX`，会连接失败 |
 | `MYSQL_HOST` | 默认 `rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com` | **必填** | |
@@ -227,7 +230,7 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 | `AIVIDEO_CORS_ORIGINS` | — | 可选 | 跨域部署时的前端域名，逗号分隔 |
 | `SERVER_PORT` | 18088 | 18088 | 后端端口 |
 
-pro 启动时会检查配置：没配 `DASHSCOPE_API_KEY`、数据库密码为空或仍是 `XXXX`、缺少 `MYSQL_HOST` / `MYSQL_USER` 时，直接启动失败并提示缺哪一项。
+pro 启动时会检查配置：加密主密钥未配置或格式不正确、数据库密码为空或仍是 `XXXX`、缺少 `MYSQL_HOST` / `MYSQL_USER` 时，直接启动失败。个人 Key 缺失只影响该用户的模型调用。
 
 ## 运行
 
@@ -235,7 +238,7 @@ pro 启动时会检查配置：没配 `DASHSCOPE_API_KEY`、数据库密码为�
 
 启动前请确认表已经手动建好（见上文"环境"一节），并且 RDS 白名单里有本机的公网 IP。
 
-在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD` 和 `REDIS_PASSWORD`（需要真实调用百炼时再加 `DASHSCOPE_API_KEY`），工作目录设为 `backend/aivideo-server`。
+在 IDEA 中运行 `aivideo-server` 模块的 `AiVideoApplication`：Active profiles 不填（默认就是 `uat`），在 Environment variables 中填 `MYSQL_PASSWORD` 和 `REDIS_PASSWORD`和 `AIVIDEO_CREDENTIAL_MASTER_KEY`（生成方法见用户厂商密钥文档），工作目录设为 `backend/aivideo-server`。
 
 命令行启动（PowerShell，在项目根目录执行；会自动编译前台服务依赖的模块）：
 
@@ -271,7 +274,7 @@ mvn -pl aivideo-admin -am spring-boot:run
 
 ### UAT 部署
 
-后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD`、`REDIS_PASSWORD` 和可选的 `DASHSCOPE_API_KEY`）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
+后端用默认的 `uat` 环境启动（同上，设置好 `MYSQL_PASSWORD`、`REDIS_PASSWORD` 和必填的 `AIVIDEO_CREDENTIAL_MASTER_KEY`）；前端用 `npm run build:uat` 打包，部署方式与生产相同（见下文 Nginx 配置）。
 
 ### PRO 生产部署
 
@@ -284,7 +287,7 @@ mvn clean package -DskipTests
 ```
 
 ```bash
-SPRING_PROFILES_ACTIVE=pro DASHSCOPE_API_KEY=sk-xxx MYSQL_HOST=xxx MYSQL_USER=xxx MYSQL_PASSWORD=xxx REDIS_HOST=xxx REDIS_USERNAME=xxx REDIS_PASSWORD=xxx java -jar aivideo-server/target/sun-aivideo-server.jar
+SPRING_PROFILES_ACTIVE=pro AIVIDEO_CREDENTIAL_MASTER_KEY=已安全保存的Base64主密钥 MYSQL_HOST=xxx MYSQL_USER=xxx MYSQL_PASSWORD=xxx REDIS_HOST=xxx REDIS_USERNAME=xxx REDIS_PASSWORD=xxx java -jar aivideo-server/target/sun-aivideo-server.jar
 ```
 
 3. 在 `frontend/user-frontend` 执行 `npm run build:pro`，产物在 `frontend/user-frontend/dist`。推荐用 Nginx 和后端同域部署，这样 `/files` 下的视频和图片也能直接访问，不需要配置跨域：
@@ -390,7 +393,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 - 规则：
   - 只能删除**已结束**的任务（成功 / 失败 / 取消 / 超时）。生成中的任务不能删除，避免后台还在轮询计费、记录却已经隐藏。
   - 删除只把 `t_video_task.deleted` 置为 1，并记录 `deleted_at`，数据库记录和本地视频文件都保留。
-  - 删除后：生成记录、任务明细和详情接口都不再返回这条任务；**用量与费用统计仍然计入**，因为费用确实已经产生。
+  - 删除后：生成记录、任务明细和详情接口都不再返回这条任务；**用量与费用统计仍然计入**，因为参考费用需要保留，实际扣费以厂商账单为准。
 - 实现：实体 `VideoTask.deleted` 加了 `@TableLogic`，`BaseMapper` 的方法会自动带上 `deleted = 0` 条件；XML 里的自定义查询都显式写了 `deleted = 0`，删除操作由 XML 中的 `softDeleteById` 完成。
 - 已经建过表的库需要先加字段，执行 `backend/sql/ddl.sql` 末尾"表结构变更记录"里的 `ALTER TABLE` 语句。
 
@@ -400,7 +403,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 
 ## 万相 2.2 低价模型
 
-用来降低视频成本，和万相 2.7 共用 `DASHSCOPE_API_KEY`。
+用来降低视频成本，和万相 2.7 共用当前用户的百炼 Key。
 
 | 模型 | 生成方式 | 分辨率 | 单价（元/秒，待核实） | 5 秒 480P 约 |
 |---|---|---|---|---|

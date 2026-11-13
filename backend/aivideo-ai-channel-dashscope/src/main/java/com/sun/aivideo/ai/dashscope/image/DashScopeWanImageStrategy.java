@@ -1,11 +1,13 @@
 package com.sun.aivideo.ai.dashscope.image;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
+import com.sun.aivideo.ai.auth.ProviderErrors;
+import com.sun.aivideo.common.enums.AiChannel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.aivideo.ai.dashscope.config.DashScopeClientConfig;
-import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
 import com.sun.aivideo.ai.image.strategy.ImageGenerationStrategy;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
@@ -46,14 +48,11 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final DashScopeProperties dashScopeProperties;
 
     public DashScopeWanImageStrategy(@Qualifier(DashScopeClientConfig.IMAGE_REST_CLIENT) RestClient restClient,
-                                     ObjectMapper objectMapper,
-                                     DashScopeProperties dashScopeProperties) {
+                                     ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
-        this.dashScopeProperties = dashScopeProperties;
     }
 
     @Override
@@ -62,13 +61,8 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
     }
 
     @Override
-    public boolean available() {
-        return dashScopeProperties.hasApiKey();
-    }
-
-    @Override
-    public ImageGenerateResult generate(ImageGenerateRequest req) {
-        JsonNode resp = call(buildBody(req));
+    public ImageGenerateResult generate(ImageGenerateRequest req, ChannelCredentials credentials) {
+        JsonNode resp = call(buildBody(req), credentials);
         List<GeneratedImage> images = new ArrayList<>();
         for (JsonNode choice : resp.path("output").path("choices")) {
             for (JsonNode content : choice.path("message").path("content")) {
@@ -79,7 +73,7 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
             }
         }
         if (images.isEmpty()) {
-            throw new AiClientException("NO_IMAGE", "百炼未返回图片：" + abbreviate(resp.toString()));
+            throw new AiClientException("NO_IMAGE", "百炼未返回图片");
         }
         JsonNode usage = resp.path("usage");
         log.info("百炼文生图完成 model={} bizTaskId={} 张数={}", req.getModelCode(), req.getBizTaskId(), images.size());
@@ -120,10 +114,11 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
         return size != null ? size : byRatio.get("1:1");
     }
 
-    private JsonNode call(ObjectNode body) {
+    private JsonNode call(ObjectNode body, ChannelCredentials credentials) {
         try {
             JsonNode resp = restClient.post()
                     .uri(GENERATE_PATH)
+                    .header("Authorization", "Bearer " + credentials.keyFor(AiChannel.DASHSCOPE))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
@@ -132,26 +127,14 @@ public class DashScopeWanImageStrategy implements ImageGenerationStrategy {
                 throw new AiClientException("EMPTY_RESPONSE", "百炼返回为空");
             }
             if (StringUtils.hasText(resp.path("code").asText(null))) {
-                throw new AiClientException(resp.path("code").asText(), "百炼文生图失败：" + resp.path("message").asText());
+                throw ProviderErrors.rejected(resp.path("code").asText());
             }
             return resp;
         } catch (RestClientResponseException e) {
-            String code = "HTTP_" + e.getStatusCode().value();
-            String message = e.getResponseBodyAsString();
-            try {
-                JsonNode err = objectMapper.readTree(message);
-                code = err.path("code").asText(code);
-                message = err.path("message").asText(message);
-            } catch (Exception ignore) {
-                // 非 JSON 错误体，直接透传
-            }
-            throw new AiClientException(code, "百炼文生图失败(HTTP " + e.getStatusCode().value() + ")：" + message, e);
+            throw ProviderErrors.http(e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new AiClientException("NETWORK_ERROR", "调用百炼失败：" + e.getMessage(), e);
+            throw ProviderErrors.network();
         }
     }
 
-    private static String abbreviate(String s) {
-        return s.length() > 300 ? s.substring(0, 300) + "…" : s;
-    }
 }

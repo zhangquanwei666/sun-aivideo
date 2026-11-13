@@ -13,7 +13,7 @@ public class SystemStatusVO extends BaseResponse {
     /** 当前环境：uat / pro */
     private String env;
 
-    /** 未配置 API Key，视频生成走 Mock */
+    /** 是否显式开启开发 Mock；不包含个人凭证状态 */
     private Boolean mockMode;
     /** 千问润色是否可用 */
     private Boolean llmAvailable;

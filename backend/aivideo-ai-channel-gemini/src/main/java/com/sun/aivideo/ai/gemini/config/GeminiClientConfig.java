@@ -32,7 +32,7 @@ public class GeminiClientConfig {
     private static RestClient createClient(GeminiProperties cfg, String baseUrl, int readTimeoutSeconds) {
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(cfg.getConnectTimeoutSeconds()))
-                .followRedirects(HttpClient.Redirect.NORMAL);
+                .followRedirects(HttpClient.Redirect.NEVER);
         if (cfg.hasProxy()) {
             builder.proxy(ProxySelector.of(new InetSocketAddress(cfg.getProxyHost(), cfg.getProxyPort())));
         }
@@ -41,7 +41,6 @@ public class GeminiClientConfig {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
-                .defaultHeader("x-goog-api-key", cfg.getApiKey() == null ? "" : cfg.getApiKey())
                 .build();
     }
 }

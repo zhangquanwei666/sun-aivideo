@@ -28,6 +28,7 @@ public class ImageModelConfigServiceImpl implements ImageModelConfigService {
     private final ImageModelConfigMapper imageModelConfigMapper;
     private final ImageGenerationStrategyFactory imageStrategyFactory;
     private final CostService costService;
+    private final com.sun.aivideo.service.ChannelCredentialService credentials;
 
     @Override
     public ImageModelListVO listForSelection() {
@@ -48,8 +49,10 @@ public class ImageModelConfigServiceImpl implements ImageModelConfigService {
                 ProviderVO vo = new ProviderVO();
                 vo.setCode(code);
                 vo.setName(ImageProvider.labelOf(code));
-                vo.setAvailable(imageStrategyFactory.isAvailable(code));
-                vo.setMockFallback(imageStrategyFactory.allowMockFallback());
+                vo.setSupported(true);
+                vo.setAvailable(imageStrategyFactory.isMockMode() || credentials.configured(
+                        cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong(), com.sun.aivideo.common.enums.AiChannel.valueOf(code)));
+                vo.setMockFallback(false);
                 vo.setModelCount(0);
                 return vo;
             });

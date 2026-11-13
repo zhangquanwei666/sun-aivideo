@@ -21,13 +21,14 @@
     <nav class="tabs">
       <router-link to="/generate" class="tab">生成视频</router-link>
       <router-link to="/usage" class="tab">用量与费用</router-link>
+      <router-link to="/model-keys" class="tab">模型密钥</router-link>
     </nav>
 
     <div class="header-actions">
       <div class="status">
         <span v-if="!connected" class="chip off" title="后端没有响应，请确认后端已启动"><span class="dot" />后端未连接</span>
-        <span v-else class="chip" :class="status.mockMode ? 'mock' : 'live'" :title="status.mockMode ? '未配置 DASHSCOPE_API_KEY，视频生成走 Mock，不产生真实费用' : '已连接阿里云百炼'">
-          <span class="dot" />{{ status.mockMode ? 'Mock 模式' : '百炼已连接' }}
+        <span v-else class="chip" :class="status.mockMode ? 'mock' : 'live'" :title="status.mockMode ? '开发模拟模式，不调用厂商' : '使用你在模型密钥中配置的账户'">
+          <span class="dot" />{{ status.mockMode ? 'Mock 模式' : '使用个人密钥' }}
         </span>
         <span class="chip subtle" title="提示词润色使用的模型">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z" /></svg>

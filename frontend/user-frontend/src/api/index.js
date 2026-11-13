@@ -48,3 +48,10 @@ export const uploadImage = (file) => {
   form.append('file', file)
   return http.post('/files/images', form, { timeout: 60000 })
 }
+
+// 用户自己的厂商密钥；列表从不返回原文。
+export const listChannelCredentials = () => http.get('/channel-credentials')
+export const getUserAiStatus = () => http.get('/channel-credentials/status')
+export const saveChannelCredential = (channel, apiKey) => http.put(`/channel-credentials/${channel}`, { apiKey })
+export const setChannelCredentialEnabled = (channel, enabled) => http.put(`/channel-credentials/${channel}/enabled`, { enabled })
+export const deleteChannelCredential = channel => http.delete(`/channel-credentials/${channel}`)

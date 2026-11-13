@@ -1,5 +1,6 @@
 package com.sun.aivideo.ai.llm.strategy;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
 import com.sun.aivideo.ai.llm.model.LlmChatRequest;
 import com.sun.aivideo.ai.llm.model.LlmChatResponse;
 import com.sun.aivideo.common.enums.LlmProvider;
@@ -14,11 +15,8 @@ public interface LlmStrategy {
     /** 策略对应的厂商（工厂按此注册） */
     LlmProvider provider();
 
-    /** 当前是否可用（如已配置 API Key） */
-    boolean available();
-
-    /** 实际调用的模型名 */
+/** 实际调用的模型名 */
     String modelName();
 
-    LlmChatResponse chat(LlmChatRequest request);
+    LlmChatResponse chat(LlmChatRequest request, ChannelCredentials credentials);
 }

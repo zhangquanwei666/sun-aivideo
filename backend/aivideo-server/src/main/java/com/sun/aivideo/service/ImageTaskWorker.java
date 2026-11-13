@@ -45,6 +45,8 @@ public class ImageTaskWorker {
     private final PromptEnhancer promptEnhancer;
     private final CostService costService;
     private final FileStorageService fileStorageService;
+    private final ChannelCredentialService credentials;
+    private final UserInvocationGuard invocationGuard;
 
     /**
      * 服务启动时，把上次运行中断的任务标记为失败。
@@ -76,7 +78,7 @@ public class ImageTaskWorker {
 
         update = new ImageTask();
         update.setId(taskId);
-        try {
+        try (var permit = invocationGuard.acquire(task.getUserId())) {
             ImageModelConfig model = imageModelConfigService.getEnabledByCode(task.getModelCode());
             String finalPrompt = enhanceIfNeeded(task, update);
             update.setFinalPrompt(finalPrompt);
@@ -94,7 +96,8 @@ public class ImageTaskWorker {
                     .build();
 
             long start = System.currentTimeMillis();
-            ImageGenerateResult result = imageStrategyFactory.getStrategy(task.getProvider()).generate(request);
+            ImageGenerateResult result = imageStrategyFactory.getStrategy(task.getProvider()).generate(request, "MOCK".equals(task.getProvider()) ? null
+                    : credentials.forTask(task.getUserId(), task.getProvider(), task.getCredentialVersionId()));
             update.setGenerateMs(System.currentTimeMillis() - start);
 
             List<String> paths = new ArrayList<>();
@@ -103,7 +106,9 @@ public class ImageTaskWorker {
                 paths.add(fileStorageService.saveGeneratedImage(taskId, i, image));
             }
 
-            ImageCostBO cost = costService.calcImageCost(model, task.getImageSize(), paths.size());
+            ImageCostBO cost = "MOCK".equals(task.getProvider())
+                    ? new ImageCostBO("CNY", BigDecimal.ZERO, BigDecimal.ZERO, paths.size(), BigDecimal.ZERO)
+                    : costService.calcImageCost(model, task.getImageSize(), paths.size());
             BigDecimal llmCost = update.getLlmCost() != null ? update.getLlmCost() : BigDecimal.ZERO;
             LocalDateTime now = LocalDateTime.now();
             update.setStatus(TaskStatus.SUCCEEDED.name());
@@ -141,7 +146,8 @@ public class ImageTaskWorker {
             return task.getPrompt();
         }
         try {
-            PromptEnhanceResult r = promptEnhancer.enhance(task.getPrompt(), VideoMode.T2I);
+            PromptEnhanceResult r = promptEnhancer.enhance(task.getPrompt(), VideoMode.T2I, "MOCK".equals(task.getProvider()) ? null
+                    : credentials.forTask(task.getUserId(), "DASHSCOPE", task.getLlmCredentialVersionId()));
             if (r.isEnhanced()) {
                 BigDecimal llmCost = costService.calcLlmCost(r.getInputTokens(), r.getOutputTokens());
                 update.setEnhanceMs(r.getElapsedMs());
@@ -151,6 +157,7 @@ public class ImageTaskWorker {
             }
             return r.getPrompt();
         } catch (Exception e) {
+            update.setEnhanceWarning("润色失败，已使用原始提示词。请检查百炼密钥、模型权限或额度。");
             log.warn("提示词润色失败，使用原始提示词 id={}：{}", task.getId(), e.getMessage());
             return task.getPrompt();
         }

@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS t_model_config (
 CREATE TABLE IF NOT EXISTS t_video_task (
     id                      BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（任务 ID）',
     user_id                 BIGINT         NULL     COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）',
+    credential_version_id BIGINT NULL COMMENT '生成凭证版本',
+    llm_credential_version_id BIGINT NULL COMMENT '润色凭证版本',
+    enhance_warning VARCHAR(255) NULL COMMENT '润色降级提示',
     provider                VARCHAR(32)    NOT NULL COMMENT '实际调用的厂商：DASHSCOPE / GEMINI / MOCK（未配置 API Key 时为 MOCK）',
     model_code              VARCHAR(64)    NOT NULL COMMENT '模型编码，关联 t_model_config.model_code',
     mode                    VARCHAR(8)     NOT NULL COMMENT '生成方式：T2V 文生视频 / I2V 图生视频',
@@ -113,6 +116,8 @@ CREATE TABLE IF NOT EXISTS t_video_task (
 
     created_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（用户点击生成的时间）',
     updated_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    KEY idx_video_task_credential (credential_version_id),
+    KEY idx_video_task_llm_credential (llm_credential_version_id),
     KEY idx_video_task_user (user_id) COMMENT '按用户查询生成记录与统计费用',
     KEY idx_video_task_status (status) COMMENT '轮询进行中的任务、按状态筛选',
     KEY idx_video_task_created (created_at) COMMENT '按创建时间排序与统计'
@@ -157,6 +162,9 @@ CREATE TABLE IF NOT EXISTS t_image_model_config (
 CREATE TABLE IF NOT EXISTS t_image_task (
     id                      BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（任务 ID）',
     user_id                 BIGINT         NULL     COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）',
+    credential_version_id BIGINT NULL COMMENT '生成凭证版本',
+    llm_credential_version_id BIGINT NULL COMMENT '润色凭证版本',
+    enhance_warning VARCHAR(255) NULL COMMENT '润色降级提示',
     provider                VARCHAR(32)    NOT NULL COMMENT '实际调用的厂商：DASHSCOPE / GEMINI / MOCK（未配置 API Key 时为 MOCK）',
     model_code              VARCHAR(64)    NOT NULL COMMENT '模型编码，关联 t_image_model_config.model_code',
     status                  VARCHAR(16)    NOT NULL COMMENT '任务状态：SUBMITTING/RUNNING/SUCCEEDED/FAILED',
@@ -198,6 +206,8 @@ CREATE TABLE IF NOT EXISTS t_image_task (
 
     created_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（用户点击生成的时间）',
     updated_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    KEY idx_image_task_credential (credential_version_id),
+    KEY idx_image_task_llm_credential (llm_credential_version_id),
     KEY idx_image_task_user (user_id) COMMENT '按用户查询生成记录与统计费用',
     KEY idx_image_task_status (status) COMMENT '启动时清理中断的任务、按状态统计',
     KEY idx_image_task_created (created_at) COMMENT '生成记录按时间倒序分页'
@@ -207,7 +217,7 @@ CREATE TABLE IF NOT EXISTS t_image_task (
 -- ----------------------------------------------------------------------------
 -- 5. 前台用户表 t_user
 --    用途：前台（视频生成站）的用户账号。所有人都可以注册，注册后为普通用户；
---          管理员在管理后台为用户开通会员后，才能生成视频。
+--          启用状态的用户配置个人厂商密钥后即可生成，会员字段供独立会员功能使用。
 --    会员是否有效：member_level = 'VIP'，且 member_expire_at 为空（永久）或晚于当前时间。
 --    关联：t_video_task.user_id、t_image_task.user_id、t_member_record.user_id → t_user.id
 -- ----------------------------------------------------------------------------
@@ -302,3 +312,26 @@ CREATE TABLE IF NOT EXISTS t_member_record (
 -- ALTER TABLE t_image_task
 --     ADD COLUMN user_id BIGINT NULL COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）' AFTER id,
 --     ADD KEY idx_image_task_user (user_id) COMMENT '按用户查询生成记录与统计费用';
+
+
+-- 用户自维护厂商凭证；现有库升级请执行 20261113_user_channel_credentials.sql
+CREATE TABLE IF NOT EXISTS t_user_channel_credential (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    channel_code VARCHAR(32) NOT NULL COMMENT 'DASHSCOPE / GEMINI',
+    enabled TINYINT NOT NULL DEFAULT 1,
+    current_version_id BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_channel (user_id, channel_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户厂商凭证配置，不保存明文';
+
+CREATE TABLE IF NOT EXISTS t_user_channel_credential_version (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    credential_id BIGINT NOT NULL,
+    ciphertext TEXT NULL COMMENT 'AES-GCM nonce+密文+认证标签；清理后为空',
+    encryption_key_id VARCHAR(64) NOT NULL,
+    key_suffix VARCHAR(4) NOT NULL COMMENT '仅用于脱敏展示',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_credential_version (credential_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='不可变凭证版本，供后台任务绑定';

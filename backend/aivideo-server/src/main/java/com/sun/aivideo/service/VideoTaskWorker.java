@@ -45,6 +45,8 @@ public class VideoTaskWorker {
     private final PromptEnhancer promptEnhancer;
     private final CostService costService;
     private final FileStorageService fileStorageService;
+    private final ChannelCredentialService credentials;
+    private final UserInvocationGuard invocationGuard;
     private final VideoGenerationStrategyFactory videoStrategyFactory;
     private final AiVideoProperties properties;
 
@@ -56,7 +58,7 @@ public class VideoTaskWorker {
         }
         VideoTask update = new VideoTask();
         update.setId(taskId);
-        try {
+        try (var permit = invocationGuard.acquire(task.getUserId())) {
             ModelConfig model = modelConfigService.getEnabledByCode(task.getModelCode());
             VideoMode mode = VideoMode.valueOf(task.getMode());
 
@@ -81,7 +83,8 @@ public class VideoTaskWorker {
                     .build();
 
             VideoGenerationStrategy strategy = videoStrategyFactory.getStrategy(task.getProvider());
-            VideoSubmitResult result = strategy.submit(request);
+            VideoSubmitResult result = strategy.submit(request, "MOCK".equals(task.getProvider()) ? null
+                    : credentials.forTask(task.getUserId(), task.getProvider(), task.getCredentialVersionId()));
             update.setProviderTaskId(result.getProviderTaskId());
             update.setStatus(toTaskStatus(result.getState()).name());
             videoTaskMapper.updateById(update);
@@ -94,11 +97,17 @@ public class VideoTaskWorker {
 
     /** 轮询所有进行中的任务 */
     public void pollActiveTasks() {
+        videoTaskMapper.failStaleSubmissions(properties.getPolling().getTimeoutMinutes());
         List<VideoTask> tasks = videoTaskMapper.selectActiveTasks(TaskStatus.POLLING);
         for (VideoTask task : tasks) {
-            try {
+            try (var permit = invocationGuard.acquire(task.getUserId())) {
                 pollOne(task);
             } catch (Exception e) {
+                if (e instanceof com.sun.aivideo.common.exception.BizException
+                        || (e instanceof AiClientException ace && java.util.Set.of("KEY_INVALID", "MODEL_FORBIDDEN").contains(ace.getErrorCode()))) {
+                    VideoTask failed = new VideoTask(); failed.setId(task.getId()); failed.setErrorCode("CREDENTIAL_UNAVAILABLE");
+                    finishAsFailed(task, failed, TaskStatus.FAILED, e.getMessage());
+                }
                 log.warn("轮询任务失败 id={}：{}", task.getId(), e.getMessage());
             }
         }
@@ -111,7 +120,8 @@ public class VideoTaskWorker {
             return task.getPrompt();
         }
         try {
-            PromptEnhanceResult r = promptEnhancer.enhance(task.getPrompt(), mode);
+            PromptEnhanceResult r = promptEnhancer.enhance(task.getPrompt(), mode, "MOCK".equals(task.getProvider()) ? null
+                    : credentials.forTask(task.getUserId(), "DASHSCOPE", task.getLlmCredentialVersionId()));
             if (r.isEnhanced()) {
                 BigDecimal llmCost = costService.calcLlmCost(r.getInputTokens(), r.getOutputTokens());
                 update.setEnhanceMs(r.getElapsedMs());
@@ -123,6 +133,7 @@ public class VideoTaskWorker {
             return r.getPrompt();
         } catch (Exception e) {
             // 润色失败不影响生成，使用原始提示词
+            update.setEnhanceWarning("润色失败，已使用原始提示词。请检查百炼密钥、模型权限或额度。");
             log.warn("千问润色失败，使用原始提示词 id={}：{}", task.getId(), e.getMessage());
             return task.getPrompt();
         }
@@ -140,7 +151,8 @@ public class VideoTaskWorker {
             return;
         }
 
-        VideoTaskResult r = videoStrategyFactory.getStrategy(task.getProvider()).query(task.getProviderTaskId());
+        VideoTaskResult r = videoStrategyFactory.getStrategy(task.getProvider()).query(task.getProviderTaskId(), "MOCK".equals(task.getProvider()) ? null
+                : credentials.forTask(task.getUserId(), task.getProvider(), task.getCredentialVersionId()));
         TaskStatus status = toTaskStatus(r.getState());
 
         VideoTask update = new VideoTask();
@@ -167,7 +179,9 @@ public class VideoTaskWorker {
     private void onSucceeded(VideoTask task, VideoTask update, VideoTaskResult r, LocalDateTime now) {
         ModelConfig model = modelConfigService.findByCode(task.getModelCode());
         int billedSeconds = r.getBilledDuration() != null ? r.getBilledDuration() : task.getDuration();
-        VideoCostBO videoCost = costService.calcVideoCost(model, task.getResolution(), billedSeconds);
+        VideoCostBO videoCost = "MOCK".equals(task.getProvider())
+                ? new VideoCostBO("CNY", BigDecimal.ZERO, billedSeconds, BigDecimal.ZERO)
+                : costService.calcVideoCost(model, task.getResolution(), billedSeconds);
         BigDecimal llmCost = task.getLlmCost() == null ? BigDecimal.ZERO : task.getLlmCost();
 
         // 厂商直接返回视频内容（如 Gemini Omni）时，立即保存到本地

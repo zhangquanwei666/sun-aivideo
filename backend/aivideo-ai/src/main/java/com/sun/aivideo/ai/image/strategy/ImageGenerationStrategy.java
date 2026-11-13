@@ -1,5 +1,6 @@
 package com.sun.aivideo.ai.image.strategy;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
 import com.sun.aivideo.ai.image.model.ImageGenerateRequest;
 import com.sun.aivideo.ai.image.model.ImageGenerateResult;
 import com.sun.aivideo.common.enums.ImageProvider;
@@ -14,11 +15,6 @@ public interface ImageGenerationStrategy {
     /** 策略对应的厂商（工厂按此注册） */
     ImageProvider provider();
 
-    /** 当前能否真实调用（通常是是否配置了 API Key）；不可用且允许 Mock 时会退回 Mock */
-    default boolean available() {
-        return true;
-    }
-
     /** 生成图片（阻塞直到生成完成） */
-    ImageGenerateResult generate(ImageGenerateRequest request);
+    ImageGenerateResult generate(ImageGenerateRequest request, ChannelCredentials credentials);
 }

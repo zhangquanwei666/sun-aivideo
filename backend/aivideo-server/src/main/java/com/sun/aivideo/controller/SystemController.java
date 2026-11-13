@@ -1,6 +1,5 @@
 package com.sun.aivideo.controller;
 
-import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
 import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.llm.PromptEnhancer;
 import com.sun.aivideo.common.base.BaseResponse;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class SystemController {
 
     private final AiVideoProperties properties;
-    private final DashScopeProperties dashScopeProperties;
     private final MockVideoProperties mockProperties;
     private final PromptEnhancer promptEnhancer;
     private final EnvironmentChecker environmentChecker;
@@ -28,9 +26,9 @@ public class SystemController {
     public SystemStatusVO status() {
         SystemStatusVO vo = new SystemStatusVO();
         vo.setEnv(environmentChecker.currentEnv());
-        vo.setMockMode(!dashScopeProperties.hasApiKey() && mockProperties.isWhenNoKey());
-        vo.setLlmAvailable(promptEnhancer.available());
-        vo.setLlmModel(promptEnhancer.currentModelName());
+        vo.setMockMode(mockProperties.isEnabled());
+        vo.setLlmAvailable(false);
+
         vo.setPollingIntervalMs(properties.getPolling().getIntervalMs());
         return BaseResponse.ok(vo);
     }

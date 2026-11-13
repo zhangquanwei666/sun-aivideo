@@ -53,7 +53,7 @@ public class PromptEnhancer {
         return llmStrategyFactory.resolveDefault().map(LlmStrategy::modelName).orElse(null);
     }
 
-    public PromptEnhanceResult enhance(String prompt, VideoMode mode) {
+    public PromptEnhanceResult enhance(String prompt, VideoMode mode, com.sun.aivideo.ai.auth.ChannelCredentials credentials) {
         Optional<LlmStrategy> strategy = llmStrategyFactory.resolveDefault();
         if (strategy.isEmpty() || !StringUtils.hasText(prompt)) {
             return PromptEnhanceResult.builder().prompt(prompt).enhanced(false).build();
@@ -65,7 +65,7 @@ public class PromptEnhancer {
                     default -> T2V_SYSTEM;
                 })
                 .userPrompt(prompt)
-                .build());
+                .build(), credentials);
         String text = resp.getContent();
         return PromptEnhanceResult.builder()
                 .prompt(StringUtils.hasText(text) ? text.trim() : prompt)

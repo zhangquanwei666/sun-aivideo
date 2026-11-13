@@ -11,8 +11,6 @@ import org.springframework.util.StringUtils;
 @ConfigurationProperties(prefix = "aivideo.gemini")
 public class GeminiProperties {
 
-    /** Gemini API Key，通过环境变量 GEMINI_API_KEY 注入 */
-    private String apiKey;
     /** 接口地址（含版本号）；国内可换成自己的中转地址 */
     private String baseUrl = "https://generativelanguage.googleapis.com/v1";
     /** 视频生成（Interactions API）的接口地址，目前在 v1beta 下 */
@@ -26,9 +24,6 @@ public class GeminiProperties {
     private String proxyHost;
     private Integer proxyPort;
 
-    public boolean hasApiKey() {
-        return StringUtils.hasText(apiKey);
-    }
 
     public boolean hasProxy() {
         return StringUtils.hasText(proxyHost) && proxyPort != null && proxyPort > 0;

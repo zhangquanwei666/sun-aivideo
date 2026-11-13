@@ -20,7 +20,8 @@ public class AsyncConfig {
         executor.setMaxPoolSize(16);
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("video-task-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // 满载时明确拒绝，不能在提交事务的 afterCommit 线程内执行长任务。
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.initialize();
         return executor;
     }

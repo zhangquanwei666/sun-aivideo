@@ -46,26 +46,19 @@ public class LlmStrategyFactory {
         return strategy;
     }
 
-    /**
-     * 当前应使用的策略：
-     * <ol>
-     *     <li>润色关闭（aivideo.llm.enabled=false）→ 无</li>
-     *     <li>配置的厂商可用 → 该厂商</li>
-     *     <li>不可用但允许 Mock（aivideo.mock.when-no-key=true）→ Mock</li>
-     *     <li>否则 → 无</li>
-     * </ol>
-     */
+    /** 只选择策略；个人凭证由上层校验并逐次传入，Mock 需显式开启。 */
     public Optional<LlmStrategy> resolveDefault() {
         if (!llmProperties.isEnabled()) {
             return Optional.empty();
         }
-        LlmStrategy configured = strategies.get(llmProperties.getProvider());
-        if (configured != null && configured.available()) {
-            return Optional.of(configured);
-        }
-        if (mockProperties.isWhenNoKey()) {
+        if (mockProperties.isEnabled()) {
             return Optional.of(getStrategy(LlmProvider.MOCK));
         }
+        LlmStrategy configured = strategies.get(llmProperties.getProvider());
+        if (configured != null && llmProperties.getProvider() != LlmProvider.MOCK) {
+            return Optional.of(configured);
+        }
+
         return Optional.empty();
     }
 }

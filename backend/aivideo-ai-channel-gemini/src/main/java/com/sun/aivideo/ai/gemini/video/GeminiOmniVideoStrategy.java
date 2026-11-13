@@ -1,5 +1,8 @@
 package com.sun.aivideo.ai.gemini.video;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
+import com.sun.aivideo.ai.auth.ProviderErrors;
+import com.sun.aivideo.common.enums.AiChannel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -82,15 +85,11 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
     }
 
     @Override
-    public boolean available() {
-        return geminiProperties.hasApiKey();
-    }
-
-    @Override
-    public VideoSubmitResult submit(VideoGenerateRequest req) {
+    public VideoSubmitResult submit(VideoGenerateRequest req, ChannelCredentials credentials) {
         LocalDateTime start = LocalDateTime.now();
         JsonNode interaction = call(() -> restClient.post()
                 .uri(CREATE_PATH)
+                .header("x-goog-api-key", credentials.keyFor(AiChannel.GEMINI))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(buildBody(req))
                 .retrieve()
@@ -98,15 +97,14 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
         LocalDateTime end = LocalDateTime.now();
 
         String id = interaction.path("id").asText(null);
-        String status = interaction.path("status").asText("");
-        byte[] video = extractVideo(interaction);
+        byte[] video = extractVideo(interaction, credentials);
         if (video == null) {
-            throw new AiClientException(errorCode(interaction, status), "Gemini 未返回视频：" + errorMessage(interaction, status));
+            throw new AiClientException("NO_VIDEO", "Gemini 未返回视频，请检查提示词、模型权限或配额");
         }
         if (!StringUtils.hasText(id)) {
             id = "omni-" + UUID.randomUUID();
         }
-        completed.put(id, new Completed(video, req.getDuration(), start, end));
+        completed.put(credentials.cacheKey(id), new Completed(video, req.getDuration(), start, end));
         log.info("Gemini Omni 视频生成完成 id={} model={} bizTaskId={} {}KB 耗时{}ms", id, req.getModelCode(),
                 req.getBizTaskId(), video.length / 1024, Duration.between(start, end).toMillis());
         // 视频已生成，交给下一次轮询入库
@@ -114,8 +112,8 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
     }
 
     @Override
-    public VideoTaskResult query(String providerTaskId) {
-        Completed c = completed.remove(providerTaskId);
+    public VideoTaskResult query(String providerTaskId, ChannelCredentials credentials) {
+        Completed c = completed.remove(credentials.cacheKey(providerTaskId));
         if (c != null) {
             return VideoTaskResult.builder()
                     .state(VideoTaskState.SUCCEEDED)
@@ -129,19 +127,20 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
         // 缓存丢失（如服务重启），从 Gemini 重新取回
         JsonNode interaction = call(() -> restClient.get()
                 .uri(QUERY_PATH, providerTaskId)
+                .header("x-goog-api-key", credentials.keyFor(AiChannel.GEMINI))
                 .retrieve()
                 .body(JsonNode.class));
         String status = interaction.path("status").asText("").toLowerCase(Locale.ROOT);
         return switch (status) {
             case "completed" -> {
-                byte[] video = extractVideo(interaction);
+                byte[] video = extractVideo(interaction, credentials);
                 yield video != null
                         ? VideoTaskResult.builder().state(VideoTaskState.SUCCEEDED).videoData(video).build()
                         : VideoTaskResult.builder().state(VideoTaskState.FAILED)
-                            .errorCode("NO_VIDEO").errorMessage(errorMessage(interaction, status)).build();
+                            .errorCode("NO_VIDEO").errorMessage("Gemini 生成失败，请检查厂商控制台").build();
             }
             case "failed", "error" -> VideoTaskResult.builder().state(VideoTaskState.FAILED)
-                    .errorCode(errorCode(interaction, status)).errorMessage(errorMessage(interaction, status)).build();
+                    .errorCode("GENERATION_REJECTED").errorMessage("Gemini 生成失败，请检查厂商控制台").build();
             case "cancelled", "canceled" -> VideoTaskResult.builder().state(VideoTaskState.CANCELED).build();
             default -> VideoTaskResult.builder().state(VideoTaskState.RUNNING).build();
         };
@@ -174,7 +173,7 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
     }
 
     /** 从 interaction 中取出视频：steps[].content[] 里 type=video 的 data（base64）或 uri */
-    private byte[] extractVideo(JsonNode interaction) {
+    private byte[] extractVideo(JsonNode interaction, ChannelCredentials credentials) {
         for (JsonNode step : interaction.path("steps")) {
             for (JsonNode content : step.path("content")) {
                 if (!"video".equals(content.path("type").asText())) {
@@ -186,7 +185,7 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
                 }
                 String uri = content.path("uri").asText(null);
                 if (StringUtils.hasText(uri)) {
-                    return download(uri);
+                    return download(uri, credentials);
                 }
             }
         }
@@ -194,10 +193,17 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
     }
 
     /** 视频以文件形式返回时，带上 API Key 下载（与接口走同一代理） */
-    private byte[] download(String uri) {
-        String url = uri.startsWith("http") ? uri : geminiProperties.getVideoBaseUrl() + "/" + uri;
+    private byte[] download(String uri, ChannelCredentials credentials) {
+        URI base = URI.create(geminiProperties.getVideoBaseUrl() + "/");
+        URI url = base.resolve(uri);
+        if (!java.util.Objects.equals(base.getScheme(), url.getScheme())
+                || !java.util.Objects.equals(base.getHost(), url.getHost()) || base.getPort() != url.getPort()
+                || url.getUserInfo() != null || url.getFragment() != null) {
+            throw new AiClientException("UNTRUSTED_DOWNLOAD", "厂商返回的下载地址不在已配置的 API 域名内，未发送密钥");
+        }
         byte[] bytes = call(() -> restClient.get()
-                .uri(URI.create(url))
+                .uri(url)
+                .header("x-goog-api-key", credentials.keyFor(AiChannel.GEMINI))
                 .retrieve()
                 .body(byte[].class));
         if (bytes.length == 0) {
@@ -225,37 +231,11 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
             String mime = resp.headers().firstValue("Content-Type").orElse("image/png");
             return new ImageData(mime, Base64.getEncoder().encodeToString(resp.body()));
         } catch (IOException e) {
-            throw new AiClientException("IMAGE_FETCH_FAILED", "下载首帧图片失败：" + e.getMessage(), e);
+            throw new AiClientException("IMAGE_FETCH_FAILED", "下载首帧图片失败，请检查图片地址");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new AiClientException("IMAGE_FETCH_FAILED", "下载首帧图片被中断", e);
         }
-    }
-
-    private static String errorCode(JsonNode interaction, String status) {
-        String code = interaction.path("error").path("status").asText(null);
-        if (!StringUtils.hasText(code)) {
-            code = interaction.path("error").path("code").asText(null);
-        }
-        return StringUtils.hasText(code) ? code : (StringUtils.hasText(status) ? status.toUpperCase(Locale.ROOT) : "NO_VIDEO");
-    }
-
-    private static String errorMessage(JsonNode interaction, String status) {
-        String msg = interaction.path("error").path("message").asText(null);
-        if (StringUtils.hasText(msg)) {
-            return msg;
-        }
-        // 没有视频时把模型输出的文字一并返回，便于排查（如安全策略拦截的说明）
-        StringBuilder texts = new StringBuilder();
-        for (JsonNode step : interaction.path("steps")) {
-            for (JsonNode content : step.path("content")) {
-                if ("text".equals(content.path("type").asText()) && "model_output".equals(step.path("type").asText())) {
-                    texts.append(content.path("text").asText()).append(' ');
-                }
-            }
-        }
-        String detail = texts.toString().trim();
-        return "status=" + status + (detail.isEmpty() ? "" : "，" + (detail.length() > 300 ? detail.substring(0, 300) + "…" : detail));
     }
 
     private <T> T call(Supplier<T> request) {
@@ -266,19 +246,9 @@ public class GeminiOmniVideoStrategy implements VideoGenerationStrategy {
             }
             return resp;
         } catch (RestClientResponseException e) {
-            String message = e.getResponseBodyAsString();
-            String code = "HTTP_" + e.getStatusCode().value();
-            try {
-                JsonNode err = objectMapper.readTree(message).path("error");
-                code = err.path("status").asText(code);
-                message = err.path("message").asText(message);
-            } catch (Exception ignore) {
-                // 非 JSON 错误体，直接透传
-            }
-            throw new AiClientException(code, "Gemini 视频接口错误(HTTP " + e.getStatusCode().value() + ")：" + message, e);
+            throw ProviderErrors.http(e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new AiClientException("NETWORK_ERROR",
-                    "调用 Gemini 失败：" + e.getMessage() + "（国内网络请配置 aivideo.gemini.proxy-host / proxy-port 或中转地址）", e);
+            throw ProviderErrors.network();
         }
     }
 }

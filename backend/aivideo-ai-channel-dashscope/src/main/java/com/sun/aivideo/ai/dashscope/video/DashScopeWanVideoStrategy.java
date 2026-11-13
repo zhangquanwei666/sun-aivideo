@@ -1,11 +1,13 @@
 package com.sun.aivideo.ai.dashscope.video;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
+import com.sun.aivideo.ai.auth.ProviderErrors;
+import com.sun.aivideo.common.enums.AiChannel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.aivideo.ai.dashscope.config.DashScopeClientConfig;
-import com.sun.aivideo.ai.dashscope.config.DashScopeProperties;
 import com.sun.aivideo.ai.video.strategy.VideoGenerationStrategy;
 import org.springframework.beans.factory.annotation.Qualifier;
 import com.sun.aivideo.ai.exception.AiClientException;
@@ -53,14 +55,11 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final DashScopeProperties dashScopeProperties;
 
     public DashScopeWanVideoStrategy(@Qualifier(DashScopeClientConfig.VIDEO_REST_CLIENT) RestClient dashScopeRestClient,
-                                     ObjectMapper objectMapper,
-                                     DashScopeProperties dashScopeProperties) {
+                                     ObjectMapper objectMapper) {
         this.restClient = dashScopeRestClient;
         this.objectMapper = objectMapper;
-        this.dashScopeProperties = dashScopeProperties;
     }
 
     @Override
@@ -68,17 +67,12 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
         return VideoProvider.DASHSCOPE;
     }
 
-    /** 配置了百炼 API Key 才能真实调用 */
     @Override
-    public boolean available() {
-        return dashScopeProperties.hasApiKey();
-    }
-
-    @Override
-    public VideoSubmitResult submit(VideoGenerateRequest request) {
+    public VideoSubmitResult submit(VideoGenerateRequest request, ChannelCredentials credentials) {
         ObjectNode body = buildRequestBody(request);
         JsonNode resp = call(() -> restClient.post()
                 .uri(CREATE_PATH)
+                .header("Authorization", "Bearer " + credentials.keyFor(AiChannel.DASHSCOPE))
                 .header("X-DashScope-Async", "enable")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
@@ -87,7 +81,7 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
         JsonNode output = resp.path("output");
         String taskId = output.path("task_id").asText(null);
         if (!StringUtils.hasText(taskId)) {
-            throw new AiClientException("NO_TASK_ID", "百炼未返回 task_id：" + resp);
+            throw new AiClientException("NO_TASK_ID", "百炼未返回任务 ID");
         }
         log.info("百炼任务已创建 taskId={} model={} bizTaskId={}", taskId, request.getModelCode(), request.getBizTaskId());
         VideoTaskState state = "RUNNING".equals(output.path("task_status").asText()) ? VideoTaskState.RUNNING : VideoTaskState.PENDING;
@@ -95,9 +89,10 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
     }
 
     @Override
-    public VideoTaskResult query(String providerTaskId) {
+    public VideoTaskResult query(String providerTaskId, ChannelCredentials credentials) {
         JsonNode resp = call(() -> restClient.get()
                 .uri(QUERY_PATH, providerTaskId)
+                .header("Authorization", "Bearer " + credentials.keyFor(AiChannel.DASHSCOPE))
                 .retrieve()
                 .body(JsonNode.class));
         JsonNode output = resp.path("output");
@@ -120,8 +115,8 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
                     .errorCode("UNKNOWN")
                     .errorMessage("任务不存在或已超过 24 小时有效期");
             default -> result.state(VideoTaskState.FAILED)
-                    .errorCode(output.path("code").asText(rawStatus))
-                    .errorMessage(output.path("message").asText("生成失败"));
+                    .errorCode(ProviderErrors.rejected(output.path("code").asText()).getErrorCode())
+                    .errorMessage(ProviderErrors.rejected(output.path("code").asText()).getMessage());
         }
         return result.build();
     }
@@ -226,19 +221,9 @@ public class DashScopeWanVideoStrategy implements VideoGenerationStrategy {
             }
             return resp;
         } catch (RestClientResponseException e) {
-            String body = e.getResponseBodyAsString();
-            String code = "HTTP_" + e.getStatusCode().value();
-            String message = body;
-            try {
-                JsonNode err = objectMapper.readTree(body);
-                code = err.path("code").asText(code);
-                message = err.path("message").asText(body);
-            } catch (Exception ignore) {
-                // 非 JSON 错误体，直接透传
-            }
-            throw new AiClientException(code, "百炼接口错误(HTTP " + e.getStatusCode().value() + ")：" + message, e);
+            throw ProviderErrors.http(e.getStatusCode().value());
         } catch (RestClientException e) {
-            throw new AiClientException("NETWORK_ERROR", "调用百炼失败：" + e.getMessage(), e);
+            throw ProviderErrors.network();
         }
     }
 }

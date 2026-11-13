@@ -33,42 +33,16 @@ public class VideoGenerationStrategyFactory {
         log.info("已注册视频生成策略：{}", strategies.keySet());
     }
 
-    /**
-     * 新任务实际使用的策略：
-     * <ol>
-     *     <li>所选厂商可以真实调用（已配置 Key）→ 该厂商</li>
-     *     <li>不可用但允许 Mock（aivideo.mock.when-no-key=true）→ Mock</li>
-     *     <li>否则报错</li>
-     * </ol>
-     *
-     * @param providerName 模型配置中的厂商名，如 DASHSCOPE
-     */
-    public VideoGenerationStrategy resolveForNewTask(String providerName) {
-        VideoGenerationStrategy strategy = getStrategy(providerName);
-        if (strategy.available()) {
-            return strategy;
-        }
-        if (allowMockFallback()) {
-            return getStrategy(VideoProvider.MOCK);
-        }
-        throw new AiClientException("PROVIDER_NOT_CONFIGURED",
-                strategy.provider().getLabel() + " 未配置 API Key，当前环境不允许使用 Mock");
-    }
-
     /** 厂商是否已经实现了策略（未实现的厂商不在前端展示） */
     public boolean isSupported(String providerName) {
         VideoProvider provider = VideoProvider.of(providerName);
         return provider != null && provider != VideoProvider.MOCK && strategies.containsKey(provider);
     }
 
-    /** 厂商当前能否真实调用 */
-    public boolean isAvailable(String providerName) {
-        return isSupported(providerName) && getStrategy(providerName).available();
-    }
 
-    /** 厂商不可用时是否会退回 Mock */
-    public boolean allowMockFallback() {
-        return mockProperties.isWhenNoKey() && strategies.containsKey(VideoProvider.MOCK);
+    /** 是否显式开启开发 Mock 模式 */
+    public boolean isMockMode() {
+        return mockProperties.isEnabled() && strategies.containsKey(VideoProvider.MOCK);
     }
 
     /** 按任务记录的厂商名获取（轮询时使用） */

@@ -11,6 +11,8 @@
 - 历史 user_id 为 NULL 的任务不向普通用户展示，不自动认领。
 - 当前 /files/** 仍是原有公开静态资源地址，API 隔离不等于文件私密；不要把公开文件链接当成访问控制。
 
+用户自己的厂商 Key 与任务版本绑定见 [用户厂商密钥](user-channel-keys.md)。
+
 ## 接口
 POST /api/auth/register：{username,password}，直接返回 token、username，无需再次调用登录。
 POST /api/auth/login：{username,password}，返回 token、username。

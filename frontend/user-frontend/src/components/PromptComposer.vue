@@ -102,7 +102,7 @@
           class="chip"
           :class="{ on: form.enhancePrompt }"
           :disabled="!status.llmAvailable"
-          :title="status.llmAvailable ? '提交前用千问扩写提示词（按 tokens 计费）' : '配置 DASHSCOPE_API_KEY 后可用'"
+          :title="status.llmAvailable ? '提交前用千问扩写提示词（按 tokens 计费）' : '在模型密钥中配置并启用百炼 Key 后可用'"
           @click="form.enhancePrompt = !form.enhancePrompt"
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" /></svg>
@@ -136,6 +136,7 @@
       </div>
 
       <div class="actions">
+        <router-link v-if="currentModel && !providerConfigured" to="/model-keys" class="chip">配置此厂商密钥</router-link>
         <span class="estimate num" :title="currentModel?.priceNote || ''">
           预计 <strong>{{ money(estimate) }}</strong>
         </span>
@@ -237,7 +238,7 @@ const providerOptions = computed(() =>
   activeProviders.value.map((p) => ({
     value: p.code,
     label: p.name,
-    hint: `${p.modelCount} 个模型` + (p.available ? '' : p.mockFallback ? ' · 未配置 Key，将用 Mock 模拟' : ' · 未配置 Key')
+    hint: `${p.modelCount} 个模型` + (props.status.mockMode ? ' · 开发模拟' : p.available ? ' · 已配置 Key' : ' · 请配置并启用 Key')
   }))
 )
 
@@ -311,7 +312,10 @@ const estimate = computed(() => {
   return price == null ? null : Number(price) * form.duration
 })
 
+const providerConfigured = computed(() => !!activeProviders.value.find(p => p.code === form.provider)?.available)
+watch(() => props.status.llmAvailable, available => { if (!available) form.enhancePrompt = false })
 const canSubmit = computed(() => {
+  if (!providerConfigured.value) return false
   if (props.submitting || uploading.value || uploadingRefs.value || !currentModel.value) return false
   if (form.mode === 'I2V') return !!form.imageUrl
   return form.prompt.trim().length > 0
@@ -458,7 +462,7 @@ function submit() {
         imageSize: form.imageSize,
         aspectRatio: form.imageRatio,
         referenceImages: form.references.map((r) => r.url),
-        enhancePrompt: form.enhancePrompt
+        enhancePrompt: form.enhancePrompt && props.status.llmAvailable
       }
     })
     return
@@ -474,7 +478,7 @@ function submit() {
       resolution: form.resolution,
       ratio: form.mode === 'T2V' || ratioOptions.value.length ? form.ratio : null,
       duration: form.duration,
-      enhancePrompt: form.enhancePrompt,
+      enhancePrompt: form.enhancePrompt && props.status.llmAvailable,
       promptExtend: form.promptExtend,
       watermark: form.watermark,
       audio: m.supportsAudio ? form.audio : null,

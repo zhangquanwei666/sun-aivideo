@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
+  { path: '/model-keys', component: () => import('@/views/ChannelKeysView.vue'), meta: { title: '模型密钥' } },
   { path: '/login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
   { path: '/', redirect: '/generate' },
   {

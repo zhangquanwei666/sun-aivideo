@@ -1,5 +1,6 @@
 package com.sun.aivideo.ai.video.strategy;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
 import com.sun.aivideo.ai.config.MockVideoProperties;
 import com.sun.aivideo.ai.video.model.VideoGenerateRequest;
 import com.sun.aivideo.ai.video.model.VideoSubmitResult;
@@ -38,7 +39,7 @@ public class MockVideoStrategy implements VideoGenerationStrategy {
     }
 
     @Override
-    public VideoSubmitResult submit(VideoGenerateRequest request) {
+    public VideoSubmitResult submit(VideoGenerateRequest request, ChannelCredentials credentials) {
         String taskId = "mock-" + UUID.randomUUID();
         tasks.put(taskId, new MockTask(LocalDateTime.now(), request.getDuration()));
         log.info("[Mock] 视频任务已创建 taskId={} model={} bizTaskId={}", taskId, request.getModelCode(), request.getBizTaskId());
@@ -46,7 +47,7 @@ public class MockVideoStrategy implements VideoGenerationStrategy {
     }
 
     @Override
-    public VideoTaskResult query(String providerTaskId) {
+    public VideoTaskResult query(String providerTaskId, ChannelCredentials credentials) {
         MockTask task = tasks.get(providerTaskId);
         LocalDateTime now = LocalDateTime.now();
         if (task == null) {

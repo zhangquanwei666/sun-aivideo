@@ -28,6 +28,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
     private final ModelConfigMapper modelConfigMapper;
     private final VideoGenerationStrategyFactory videoStrategyFactory;
     private final CostService costService;
+    private final com.sun.aivideo.service.ChannelCredentialService credentials;
 
     @Override
     public ModelListVO listForSelection() {
@@ -49,8 +50,10 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 ProviderVO vo = new ProviderVO();
                 vo.setCode(code);
                 vo.setName(VideoProvider.labelOf(code));
-                vo.setAvailable(videoStrategyFactory.isAvailable(code));
-                vo.setMockFallback(videoStrategyFactory.allowMockFallback());
+                vo.setSupported(true);
+                vo.setAvailable(videoStrategyFactory.isMockMode() || credentials.configured(
+                        cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong(), com.sun.aivideo.common.enums.AiChannel.valueOf(code)));
+                vo.setMockFallback(false);
                 vo.setModelCount(0);
                 return vo;
             });

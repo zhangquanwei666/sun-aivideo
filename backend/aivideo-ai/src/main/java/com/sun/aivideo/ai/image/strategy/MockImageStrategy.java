@@ -1,5 +1,6 @@
 package com.sun.aivideo.ai.image.strategy;
 
+import com.sun.aivideo.ai.auth.ChannelCredentials;
 import com.sun.aivideo.ai.exception.AiClientException;
 import com.sun.aivideo.ai.image.model.GeneratedImage;
 import com.sun.aivideo.ai.image.model.ImageGenerateRequest;
@@ -35,7 +36,7 @@ public class MockImageStrategy implements ImageGenerationStrategy {
     }
 
     @Override
-    public ImageGenerateResult generate(ImageGenerateRequest req) {
+    public ImageGenerateResult generate(ImageGenerateRequest req, ChannelCredentials credentials) {
         try {
             Thread.sleep(FAKE_LATENCY_MS);
         } catch (InterruptedException e) {

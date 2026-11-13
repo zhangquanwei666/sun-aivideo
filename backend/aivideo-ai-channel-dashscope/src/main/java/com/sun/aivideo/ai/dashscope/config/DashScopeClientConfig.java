@@ -37,7 +37,6 @@ public class DashScopeClientConfig {
         return RestClient.builder()
                 .baseUrl(cfg.getBaseUrl())
                 .requestFactory(factory)
-                .defaultHeader("Authorization", "Bearer " + (cfg.getApiKey() == null ? "" : cfg.getApiKey()))
                 .build();
     }
 }

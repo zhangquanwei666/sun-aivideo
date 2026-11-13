@@ -2,10 +2,21 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!-- namespace 对应 Mapper 接口全限定名；每个 <select> 的 id 对应接口中的同名方法 -->
 <mapper namespace="com.sun.aivideo.dao.VideoTaskMapper">
+    <!-- 提交中断后不能盲目重复付费提交；超时后明确结束。 -->
+    <update id="failStaleSubmissions">
+        UPDATE t_video_task SET status = 'TIMEOUT', error_code = 'SUBMISSION_INTERRUPTED',
+            error_message = '提交中断或超时，请先检查厂商任务与账单，再决定是否重新生成',
+            finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'SUBMITTING' AND deleted = 0
+          AND created_at &lt; DATE_SUB(CURRENT_TIMESTAMP, INTERVAL #{timeoutMinutes} MINUTE)
+    </update>
 
     <!-- 表 t_video_task → 实体 VideoTask -->
     <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.VideoTask">
         <id     column="id"                      property="id"/>
+        <result column="enhance_warning" property="enhanceWarning"/>
+        <result column="credential_version_id" property="credentialVersionId"/>
+        <result column="llm_credential_version_id" property="llmCredentialVersionId"/>
         <result column="user_id"                 property="userId"/>
         <result column="provider"                property="provider"/>
         <result column="model_code"              property="modelCode"/>
@@ -75,7 +86,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
+        id, user_id, enhance_warning, credential_version_id, llm_credential_version_id, provider, model_code, mode, status, prompt, final_prompt, negative_prompt, image_url,
         resolution, ratio, duration, enhance_prompt, prompt_extend, watermark, audio, seed,
         provider_task_id, remote_video_url, local_video_path, error_code, error_message,
         billed_duration, currency, unit_price, video_cost, llm_input_tokens, llm_output_tokens, llm_cost, total_cost,

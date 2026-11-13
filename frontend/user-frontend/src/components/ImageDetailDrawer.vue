@@ -38,7 +38,8 @@
           </div>
 
           <section class="section">
-            <h4>费用</h4>
+            <h4>参考费用</h4>
+            <p class="text">实际扣费、免费额度与折扣以厂商账单为准。</p>
             <div class="cost-grid num">
               <div class="row">
                 <span>图片生成</span>
@@ -70,6 +71,7 @@
 
           <section class="section">
             <h4>提示词</h4>
+            <p v-if="task.enhanceWarning" class="err">{{ task.enhanceWarning }}</p>
             <p class="text">{{ task.prompt }}</p>
             <template v-if="task.finalPrompt && task.finalPrompt !== task.prompt">
               <h5>润色后（实际提交）</h5>

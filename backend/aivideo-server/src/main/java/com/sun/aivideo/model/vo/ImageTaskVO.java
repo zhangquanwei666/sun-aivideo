@@ -18,7 +18,7 @@ import java.util.List;
 public class ImageTaskVO extends BaseResponse {
 
     private Long id;
-    /** 实际调用的厂商编码（未配置 Key 时为 MOCK） */
+    /** 实际调用的厂商编码（显式开发模拟时为 MOCK） */
     private String provider;
     private String providerName;
     private Boolean mock;
@@ -31,6 +31,7 @@ public class ImageTaskVO extends BaseResponse {
     private String prompt;
     private String finalPrompt;
     private Boolean enhancePrompt;
+    private String enhanceWarning;
     private List<String> referenceImages;
     private String aspectRatio;
     private String imageSize;
