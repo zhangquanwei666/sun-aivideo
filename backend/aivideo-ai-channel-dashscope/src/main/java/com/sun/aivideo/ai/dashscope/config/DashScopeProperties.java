@@ -2,7 +2,6 @@ package com.sun.aivideo.ai.dashscope.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.util.StringUtils;
 
 /**
  * 阿里云百炼配置（aivideo.dashscope.*）。
