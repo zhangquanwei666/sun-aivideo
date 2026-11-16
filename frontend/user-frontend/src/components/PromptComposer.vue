@@ -1,5 +1,5 @@
 <template>
-  <form class="composer" :class="{ focused }" @submit.prevent="submit">
+  <form class="composer" :class="{ focused, locked }" :inert="locked || submitting" :aria-disabled="locked || submitting" @submit.prevent="submit">
     <div class="input-row">
       <!-- 图生视频：首帧图片 -->
       <div
@@ -166,7 +166,8 @@ const props = defineProps({
   /** 文生图模型 */
   imageModels: { type: Array, default: () => [] },
   status: { type: Object, default: () => ({}) },
-  submitting: Boolean
+  submitting: Boolean,
+  locked: Boolean
 })
 /** submit 事件：{ kind: 'video' | 'image', payload } */
 const emit = defineEmits(['submit'])
@@ -316,7 +317,7 @@ const providerConfigured = computed(() => !!activeProviders.value.find(p => p.co
 watch(() => props.status.llmAvailable, available => { if (!available) form.enhancePrompt = false })
 const canSubmit = computed(() => {
   if (!providerConfigured.value) return false
-  if (props.submitting || uploading.value || uploadingRefs.value || !currentModel.value) return false
+  if (props.submitting || props.locked || uploading.value || uploadingRefs.value || !currentModel.value) return false
   if (form.mode === 'I2V') return !!form.imageUrl
   return form.prompt.trim().length > 0
 })
@@ -530,7 +531,15 @@ function resetPrompt() {
   form.prompt = ''
 }
 
-defineExpose({ reuse, reuseImage, useAsFirstFrame, resetPrompt })
+function resetAfterVideoSubmit() {
+  form.prompt = ''
+  form.negativePrompt = ''
+  form.seed = ''
+  clearImage()
+  settingsOpen.value = false
+}
+
+defineExpose({ reuse, reuseImage, useAsFirstFrame, resetPrompt, resetAfterVideoSubmit })
 </script>
 
 <style scoped>
@@ -562,6 +571,10 @@ defineExpose({ reuse, reuseImage, useAsFirstFrame, resetPrompt })
 }
 .composer.focused {
   box-shadow: 0 8px 40px rgba(76, 141, 246, 0.18), 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.composer.locked {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .input-row {

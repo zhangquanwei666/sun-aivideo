@@ -52,8 +52,10 @@
         :image-models="imageModels"
         :status="status"
         :submitting="submitting"
+        :locked="videoGenerating"
         @submit="onSubmit"
       />
+      <p v-if="videoGenerating" class="composer-lock-note" role="status">视频生成中，完成后可继续输入</p>
     </div>
 
     <TaskDetailDrawer
@@ -128,6 +130,7 @@ const total = ref(0)
 const pageNum = ref(1)
 const loading = ref(false)
 const submitting = ref(false)
+const videoGenerating = computed(() => items.value.some((i) => i.type === 'VIDEO' && !i.task.finished))
 const videoStats = ref(null)
 const imageStats = ref(null)
 const activeKey = ref(null)
@@ -178,6 +181,7 @@ async function refreshStats() {
 }
 
 async function onSubmit({ kind, payload }) {
+  if (submitting.value || videoGenerating.value) return
   submitting.value = true
   try {
     if (kind === 'image') {
@@ -186,6 +190,7 @@ async function onSubmit({ kind, payload }) {
     } else {
       const task = await generateVideo(payload)
       items.value.unshift(toItem('VIDEO', task))
+      composer.value?.resetAfterVideoSubmit()
     }
     total.value += 1
     toast.success('已提交，生成中…')
@@ -396,6 +401,12 @@ onBeforeUnmount(() => clearInterval(timer))
 .composer-dock > * {
   max-width: 960px;
   margin: 0 auto;
+}
+.composer-lock-note {
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
 }
 @media (max-width: 720px) {
   .feed {
