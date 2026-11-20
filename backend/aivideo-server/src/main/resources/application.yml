@@ -75,7 +75,7 @@ aivideo:
 
   cost:
     # 美元兑人民币汇率：Gemini 按美元计价，费用按此折算成人民币后统计
-    usd-to-cny: 7.2
+    usd-to-cny: 6.6
 
   llm:
     # 生成前用大模型润色/扩写提示词

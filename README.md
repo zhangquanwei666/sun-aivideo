@@ -224,7 +224,7 @@ java -jar sun-aivideo-server.jar --spring.profiles.active=pro
 | `AIVIDEO_CREDENTIAL_MASTER_KEY` | 可选覆盖 | 可选覆盖 | 默认使用 application.yml 中已生成的固定主密钥；覆盖时需为 Base64 编码的 32 字节密钥 |
 | `AIVIDEO_CREDENTIAL_KEY_ID` | 默认 `v1` | 默认 `v1` | 主密钥版本标识 |
 | `AIVIDEO_MOCK_ENABLED` | 默认 `false` | 禁止 `true` | 显式开发模拟模式，缺少个人 Key 不自动模拟 |
-| `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` | 可选 | 可选 | 国内直连 Google 不通时的 HTTP 代理，例如 `127.0.0.1` / `7890`；也可以把 `aivideo.gemini.base-url` 改成中转地址 |
+| `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` | 默认 `127.0.0.1` / `7897` | 可选 | Gemini 图片和视频请求使用的 HTTP 代理，可通过环境变量覆盖 |
 | `MYSQL_PASSWORD` | **必填** | **必填** | uat 未配置时为占位符 `XXXX`，会连接失败 |
 | `MYSQL_HOST` | 默认 `rm-bp12mcri2l7712aw2io.mysql.rds.aliyuncs.com` | **必填** | |
 | `MYSQL_USER` | 默认 `aivideo` | **必填** | |
