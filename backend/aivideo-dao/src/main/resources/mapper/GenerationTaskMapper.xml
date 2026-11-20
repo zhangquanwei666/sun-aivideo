@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sun.aivideo.dao.GenerationTaskMapper">
+
+    <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.GenerationTask">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="credential_version_id" property="credentialVersionId"/>
+        <result column="llm_credential_version_id" property="llmCredentialVersionId"/>
+        <result column="provider" property="provider"/>
+        <result column="model_code" property="modelCode"/>
+        <result column="mode" property="mode"/>
+        <result column="status" property="status"/>
+        <result column="prompt" property="prompt"/>
+        <result column="final_prompt" property="finalPrompt"/>
+        <result column="negative_prompt" property="negativePrompt"/>
+        <result column="image_url" property="imageUrl"/>
+        <result column="resolution" property="resolution"/>
+        <result column="ratio" property="ratio"/>
+        <result column="duration" property="duration"/>
+        <result column="enhance_prompt" property="enhancePrompt"/>
+        <result column="enhance_warning" property="enhanceWarning"/>
+        <result column="prompt_extend" property="promptExtend"/>
+        <result column="watermark" property="watermark"/>
+        <result column="audio" property="audio"/>
+        <result column="seed" property="seed"/>
+        <result column="provider_task_id" property="providerTaskId"/>
+        <result column="remote_video_url" property="remoteVideoUrl"/>
+        <result column="local_video_path" property="localVideoPath"/>
+        <result column="error_code" property="errorCode"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="billed_duration" property="billedDuration"/>
+        <result column="currency" property="currency"/>
+        <result column="unit_price" property="unitPrice"/>
+        <result column="video_cost" property="videoCost"/>
+        <result column="llm_input_tokens" property="llmInputTokens"/>
+        <result column="llm_output_tokens" property="llmOutputTokens"/>
+        <result column="llm_cost" property="llmCost"/>
+        <result column="total_cost" property="totalCost"/>
+        <result column="enhance_ms" property="enhanceMs"/>
+        <result column="queue_ms" property="queueMs"/>
+        <result column="generate_ms" property="generateMs"/>
+        <result column="total_elapsed_ms" property="totalElapsedMs"/>
+        <result column="provider_submit_time" property="providerSubmitTime"/>
+        <result column="provider_scheduled_time" property="providerScheduledTime"/>
+        <result column="provider_end_time" property="providerEndTime"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="deleted" property="deleted"/>
+        <result column="deleted_at" property="deletedAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="reference_images" property="referenceImages"/>
+        <result column="aspect_ratio" property="aspectRatio"/>
+        <result column="image_size" property="imageSize"/>
+        <result column="image_count" property="imageCount"/>
+        <result column="image_paths" property="imagePaths"/>
+        <result column="image_cost" property="imageCost"/>
+        <result column="provider_input_tokens" property="providerInputTokens"/>
+        <result column="provider_output_tokens" property="providerOutputTokens"/>
+    </resultMap>
+
+    <resultMap id="VideoStatsResultMap" type="com.sun.aivideo.dao.bo.VideoStatsBO">
+        <result column="total_count"         property="totalCount"/>
+        <result column="succeeded_count"     property="succeededCount"/>
+        <result column="failed_count"        property="failedCount"/>
+        <result column="in_progress_count"   property="inProgressCount"/>
+        <result column="total_cost"          property="totalCost"/>
+        <result column="total_video_cost"    property="totalVideoCost"/>
+        <result column="total_llm_cost"      property="totalLlmCost"/>
+        <result column="total_video_seconds" property="totalVideoSeconds"/>
+        <result column="avg_cost"            property="avgCost"/>
+        <result column="avg_elapsed_ms"      property="avgElapsedMs"/>
+    </resultMap>
+
+    <resultMap id="ModelStatResultMap" type="com.sun.aivideo.dao.bo.ModelStatBO">
+        <result column="model_code"          property="modelCode"/>
+        <result column="total_count"         property="totalCount"/>
+        <result column="succeeded_count"     property="succeededCount"/>
+        <result column="total_cost"          property="totalCost"/>
+        <result column="total_video_seconds" property="totalVideoSeconds"/>
+        <result column="avg_elapsed_ms"      property="avgElapsedMs"/>
+    </resultMap>
+
+    <resultMap id="ImageStatsResultMap" type="com.sun.aivideo.dao.bo.ImageStatsBO">
+        <result column="total_count"       property="totalCount"/>
+        <result column="succeeded_count"   property="succeededCount"/>
+        <result column="failed_count"      property="failedCount"/>
+        <result column="in_progress_count" property="inProgressCount"/>
+        <result column="total_images"      property="totalImages"/>
+        <result column="total_cost"        property="totalCost"/>
+        <result column="total_image_cost"  property="totalImageCost"/>
+        <result column="total_llm_cost"    property="totalLlmCost"/>
+        <result column="avg_cost"          property="avgCost"/>
+        <result column="avg_elapsed_ms"    property="avgElapsedMs"/>
+    </resultMap>
+
+    <resultMap id="ImageModelStatResultMap" type="com.sun.aivideo.dao.bo.ImageModelStatBO">
+        <result column="model_code"      property="modelCode"/>
+        <result column="total_count"     property="totalCount"/>
+        <result column="succeeded_count" property="succeededCount"/>
+        <result column="total_images"    property="totalImages"/>
+        <result column="total_cost"      property="totalCost"/>
+        <result column="avg_elapsed_ms"  property="avgElapsedMs"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, credential_version_id, llm_credential_version_id, provider, model_code, mode, status,
+        prompt, final_prompt, negative_prompt, image_url, resolution, ratio, duration, enhance_prompt,
+        enhance_warning, prompt_extend, watermark, audio, seed, provider_task_id, remote_video_url,
+        local_video_path, error_code, error_message, billed_duration, currency, unit_price, video_cost,
+        llm_input_tokens, llm_output_tokens, llm_cost, total_cost, enhance_ms, queue_ms, generate_ms,
+        total_elapsed_ms, provider_submit_time, provider_scheduled_time, provider_end_time, finished_at,
+        deleted, deleted_at, created_at, updated_at, reference_images, aspect_ratio, image_size, image_count,
+        image_paths, image_cost, provider_input_tokens, provider_output_tokens
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="task.id" keyColumn="id">
+        INSERT INTO t_generation_task (
+            task_type, user_id, credential_version_id, llm_credential_version_id, provider, model_code, mode,
+            status, prompt, final_prompt, negative_prompt, image_url, resolution, ratio, duration,
+            enhance_prompt, enhance_warning, prompt_extend, watermark, audio, seed, currency, video_cost,
+            llm_input_tokens, llm_output_tokens, llm_cost, total_cost, created_at, updated_at,
+            reference_images, aspect_ratio, image_size, image_count, image_cost
+        ) VALUES (
+            #{type}, #{task.userId}, #{task.credentialVersionId}, #{task.llmCredentialVersionId},
+            #{task.provider}, #{task.modelCode}, #{task.mode}, #{task.status}, #{task.prompt},
+            #{task.finalPrompt}, #{task.negativePrompt}, #{task.imageUrl}, #{task.resolution}, #{task.ratio},
+            #{task.duration}, #{task.enhancePrompt}, #{task.enhanceWarning}, #{task.promptExtend},
+            #{task.watermark}, #{task.audio}, #{task.seed}, #{task.currency}, #{task.videoCost},
+            #{task.llmInputTokens}, #{task.llmOutputTokens}, #{task.llmCost}, #{task.totalCost},
+            #{task.createdAt}, CURRENT_TIMESTAMP(3), #{task.referenceImages}, #{task.aspectRatio},
+            #{task.imageSize}, #{task.imageCount}, #{task.imageCost}
+        )
+    </insert>
+
+    <update id="updateById">
+        UPDATE t_generation_task
+        <set>
+            <if test="task.status != null">status = #{task.status},</if>
+            <if test="task.finalPrompt != null">final_prompt = #{task.finalPrompt},</if>
+            <if test="task.enhanceWarning != null">enhance_warning = #{task.enhanceWarning},</if>
+            <if test="task.providerTaskId != null">provider_task_id = #{task.providerTaskId},</if>
+            <if test="task.remoteVideoUrl != null">remote_video_url = #{task.remoteVideoUrl},</if>
+            <if test="task.localVideoPath != null">local_video_path = #{task.localVideoPath},</if>
+            <if test="task.errorCode != null">error_code = #{task.errorCode},</if>
+            <if test="task.errorMessage != null">error_message = #{task.errorMessage},</if>
+            <if test="task.billedDuration != null">billed_duration = #{task.billedDuration},</if>
+            <if test="task.currency != null">currency = #{task.currency},</if>
+            <if test="task.unitPrice != null">unit_price = #{task.unitPrice},</if>
+            <if test="task.videoCost != null">video_cost = #{task.videoCost},</if>
+            <if test="task.llmInputTokens != null">llm_input_tokens = #{task.llmInputTokens},</if>
+            <if test="task.llmOutputTokens != null">llm_output_tokens = #{task.llmOutputTokens},</if>
+            <if test="task.llmCost != null">llm_cost = #{task.llmCost},</if>
+            <if test="task.totalCost != null">total_cost = #{task.totalCost},</if>
+            <if test="task.enhanceMs != null">enhance_ms = #{task.enhanceMs},</if>
+            <if test="task.queueMs != null">queue_ms = #{task.queueMs},</if>
+            <if test="task.generateMs != null">generate_ms = #{task.generateMs},</if>
+            <if test="task.totalElapsedMs != null">total_elapsed_ms = #{task.totalElapsedMs},</if>
+            <if test="task.providerSubmitTime != null">provider_submit_time = #{task.providerSubmitTime},</if>
+            <if test="task.providerScheduledTime != null">provider_scheduled_time = #{task.providerScheduledTime},</if>
+            <if test="task.providerEndTime != null">provider_end_time = #{task.providerEndTime},</if>
+            <if test="task.finishedAt != null">finished_at = #{task.finishedAt},</if>
+            <if test="task.imagePaths != null">image_paths = #{task.imagePaths},</if>
+            <if test="task.imageCount != null">image_count = #{task.imageCount},</if>
+            <if test="task.imageCost != null">image_cost = #{task.imageCost},</if>
+            <if test="task.providerInputTokens != null">provider_input_tokens = #{task.providerInputTokens},</if>
+            <if test="task.providerOutputTokens != null">provider_output_tokens = #{task.providerOutputTokens},</if>
+            updated_at = CURRENT_TIMESTAMP(3)
+        </set>
+        WHERE task_type = #{type} AND id = #{task.id} AND deleted = 0
+    </update>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_generation_task
+        WHERE task_type = #{type} AND id = #{id} AND deleted = 0
+    </select>
+
+    <select id="selectBatchIds" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_generation_task
+        WHERE task_type = #{type} AND deleted = 0
+        <choose>
+            <when test="ids != null and !ids.isEmpty()">
+                AND id IN
+                <foreach collection="ids" item="id" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+    </select>
+
+    <update id="softDeleteById">
+        UPDATE t_generation_task
+        SET deleted    = 1,
+            deleted_at = CURRENT_TIMESTAMP(3),
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE task_type = #{type}
+          AND id = #{id}
+          AND deleted = 0
+          <if test="userId != null">
+          AND user_id = #{userId}
+          </if>
+    </update>
+
+    <sql id="Failed_Status">'FAILED', 'CANCELED', 'TIMEOUT'</sql>
+    <sql id="In_Progress_Status">'SUBMITTING', 'PENDING', 'RUNNING'</sql>
+
+    <select id="selectVideoPage" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_generation_task
+        <where>
+            task_type = 'VIDEO' AND deleted = 0
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="modelCode != null and modelCode != ''">
+                AND model_code = #{modelCode}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND prompt LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectActiveVideos" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_generation_task
+        WHERE task_type = 'VIDEO' AND deleted = 0
+          AND provider_task_id IS NOT NULL
+          AND status IN
+          <foreach collection="statuses" item="s" open="(" separator="," close=")">
+              #{s}
+          </foreach>
+        ORDER BY id
+    </select>
+
+    <update id="failStaleVideoSubmissions">
+        UPDATE t_generation_task SET status = 'TIMEOUT', error_code = 'SUBMISSION_INTERRUPTED',
+            error_message = '提交中断或超时，请先检查厂商任务与账单，再决定是否重新生成',
+            finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE task_type = 'VIDEO' AND status = 'SUBMITTING' AND deleted = 0
+          AND created_at &lt; DATE_SUB(CURRENT_TIMESTAMP, INTERVAL #{timeoutMinutes} MINUTE)
+    </update>
+
+    <update id="failUnfinishedImages">
+        UPDATE t_generation_task
+        SET status        = 'FAILED',
+            error_code    = 'INTERRUPTED',
+            error_message = #{errorMessage},
+            finished_at   = CURRENT_TIMESTAMP(3),
+            updated_at    = CURRENT_TIMESTAMP(3)
+        WHERE task_type = 'IMAGE' AND status IN ('SUBMITTING', 'RUNNING')
+          AND deleted = 0
+    </update>
+
+    <select id="selectVideoStats" resultMap="VideoStatsResultMap">
+        SELECT COUNT(*)                                                                         AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status IN (<include refid="Failed_Status"/>) THEN 1 ELSE 0 END), 0)      AS failed_count,
+               COALESCE(SUM(CASE WHEN status IN (<include refid="In_Progress_Status"/>) THEN 1 ELSE 0 END), 0) AS in_progress_count,
+               COALESCE(SUM(total_cost), 0)                                                     AS total_cost,
+               COALESCE(SUM(video_cost), 0)                                                     AS total_video_cost,
+               COALESCE(SUM(llm_cost), 0)                                                       AS total_llm_cost,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN billed_duration ELSE 0 END), 0)  AS total_video_seconds,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                          AS avg_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
+        FROM t_generation_task
+        <where>
+            task_type = 'VIDEO'
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectVideoStatsByModel" resultMap="ModelStatResultMap">
+        SELECT model_code,
+               COUNT(*)                                                                         AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                AS succeeded_count,
+               COALESCE(SUM(total_cost), 0)                                                     AS total_cost,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN billed_duration ELSE 0 END), 0)  AS total_video_seconds,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                    AS avg_elapsed_ms
+        FROM t_generation_task
+        <where>
+            task_type = 'VIDEO'
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+        GROUP BY model_code
+        ORDER BY total_cost DESC
+    </select>
+
+    <select id="selectImageStats" resultMap="ImageStatsResultMap">
+        SELECT COUNT(*)                                                                          AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)                 AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status IN ('FAILED', 'CANCELED', 'TIMEOUT') THEN 1 ELSE 0 END), 0) AS failed_count,
+               COALESCE(SUM(CASE WHEN status IN ('SUBMITTING', 'RUNNING') THEN 1 ELSE 0 END), 0)  AS in_progress_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN image_count ELSE 0 END), 0)       AS total_images,
+               COALESCE(SUM(total_cost), 0)                                                      AS total_cost,
+               COALESCE(SUM(image_cost), 0)                                                      AS total_image_cost,
+               COALESCE(SUM(llm_cost), 0)                                                        AS total_llm_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_cost END)                           AS avg_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)                     AS avg_elapsed_ms
+        FROM t_generation_task
+        <where>
+            task_type = 'IMAGE'
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectImageStatsByModel" resultMap="ImageModelStatResultMap">
+        SELECT model_code,
+               COUNT(*)                                                                    AS total_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END), 0)           AS succeeded_count,
+               COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN image_count ELSE 0 END), 0) AS total_images,
+               COALESCE(SUM(total_cost), 0)                                                AS total_cost,
+               AVG(CASE WHEN status = 'SUCCEEDED' THEN total_elapsed_ms END)               AS avg_elapsed_ms
+        FROM t_generation_task
+        <where>
+            task_type = 'IMAGE'
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+        </where>
+        GROUP BY model_code
+        ORDER BY total_cost DESC
+    </select>
+</mapper>

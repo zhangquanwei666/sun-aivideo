@@ -12,9 +12,10 @@ import com.sun.aivideo.common.enums.VideoMode;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.config.AsyncConfig;
 import com.sun.aivideo.converter.ModelConfigConverter;
-import com.sun.aivideo.dao.ImageTaskMapper;
+import com.sun.aivideo.dao.GenerationTaskMapper;
+import com.sun.aivideo.entity.GenerationTask;
+import com.sun.aivideo.entity.TaskType;
 import com.sun.aivideo.entity.ModelConfig;
-import com.sun.aivideo.entity.ImageTask;
 import com.sun.aivideo.model.bo.ImageCostBO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ImageTaskWorker {
 
-    private final ImageTaskMapper imageTaskMapper;
+    private final GenerationTaskMapper taskMapper;
     private final ImageModelConfigService imageModelConfigService;
     private final ImageGenerationStrategyFactory imageStrategyFactory;
     private final PromptEnhancer promptEnhancer;
@@ -55,7 +56,7 @@ public class ImageTaskWorker {
     @EventListener(ApplicationReadyEvent.class)
     public void failInterruptedTasks() {
         try {
-            int n = imageTaskMapper.failUnfinished("服务重启，任务中断，请重新生成");
+            int n = taskMapper.failUnfinishedImages("服务重启，任务中断，请重新生成");
             if (n > 0) {
                 log.warn("已将 {} 个中断的图片任务标记为失败", n);
             }
@@ -67,16 +68,16 @@ public class ImageTaskWorker {
 
     @Async(AsyncConfig.VIDEO_EXECUTOR)
     public void generateAsync(Long taskId) {
-        ImageTask task = imageTaskMapper.selectById(taskId);
+        GenerationTask task = taskMapper.selectById(TaskType.IMAGE, taskId);
         if (task == null) {
             return;
         }
-        ImageTask update = new ImageTask();
+        GenerationTask update = new GenerationTask();
         update.setId(taskId);
         update.setStatus(TaskStatus.RUNNING.name());
-        imageTaskMapper.updateById(update);
+        taskMapper.updateById(TaskType.IMAGE, update);
 
-        update = new ImageTask();
+        update = new GenerationTask();
         update.setId(taskId);
         try (var permit = invocationGuard.acquire(task.getUserId())) {
             ModelConfig model = imageModelConfigService.getEnabledByCode(task.getModelCode());
@@ -122,7 +123,7 @@ public class ImageTaskWorker {
             update.setProviderOutputTokens(result.getOutputTokens());
             update.setFinishedAt(now);
             update.setTotalElapsedMs(elapsed(task, now));
-            imageTaskMapper.updateById(update);
+            taskMapper.updateById(TaskType.IMAGE, update);
             log.info("文生图完成 id={} 耗时={}ms 费用={}元", taskId, update.getTotalElapsedMs(), update.getTotalCost());
         } catch (Exception e) {
             log.warn("文生图失败 id={}：{}", taskId, e.getMessage());
@@ -137,11 +138,11 @@ public class ImageTaskWorker {
             update.setTotalCost(llmCost.setScale(4, RoundingMode.HALF_UP));
             update.setFinishedAt(now);
             update.setTotalElapsedMs(elapsed(task, now));
-            imageTaskMapper.updateById(update);
+            taskMapper.updateById(TaskType.IMAGE, update);
         }
     }
 
-    private String enhanceIfNeeded(ImageTask task, ImageTask update) {
+    private String enhanceIfNeeded(GenerationTask task, GenerationTask update) {
         if (!Boolean.TRUE.equals(task.getEnhancePrompt())) {
             return task.getPrompt();
         }
@@ -163,7 +164,7 @@ public class ImageTaskWorker {
         }
     }
 
-    private static Long elapsed(ImageTask task, LocalDateTime end) {
+    private static Long elapsed(GenerationTask task, LocalDateTime end) {
         return task.getCreatedAt() == null ? null : Duration.between(task.getCreatedAt(), end).toMillis();
     }
 }

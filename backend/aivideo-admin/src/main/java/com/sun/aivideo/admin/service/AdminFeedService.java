@@ -6,13 +6,12 @@ import com.sun.aivideo.admin.model.PageResponse;
 import com.sun.aivideo.common.enums.ErrorCode;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.dao.FeedMapper;
-import com.sun.aivideo.dao.ImageTaskMapper;
+import com.sun.aivideo.dao.GenerationTaskMapper;
 import com.sun.aivideo.dao.UserMapper;
-import com.sun.aivideo.dao.VideoTaskMapper;
 import com.sun.aivideo.dao.bo.FeedItemBO;
-import com.sun.aivideo.entity.ImageTask;
+import com.sun.aivideo.entity.GenerationTask;
+import com.sun.aivideo.entity.TaskType;
 import com.sun.aivideo.entity.User;
-import com.sun.aivideo.entity.VideoTask;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -27,8 +26,7 @@ import java.util.stream.Collectors;
 public class AdminFeedService {
 
     private final FeedMapper feedMapper;
-    private final VideoTaskMapper videoTaskMapper;
-    private final ImageTaskMapper imageTaskMapper;
+    private final GenerationTaskMapper taskMapper;
     private final UserMapper userMapper;
 
     public PageResponse<AdminFeedItem> page(long pageNum, long pageSize, Long userId,
@@ -44,16 +42,17 @@ public class AdminFeedService {
                 .map(FeedItemBO::getId).toList();
         var userIds = page.getRecords().stream().map(FeedItemBO::getUserId).filter(java.util.Objects::nonNull).toList();
 
-        Map<Long, VideoTask> videos = videoIds.isEmpty() ? Map.of()
-                : byId(videoTaskMapper.selectBatchIds(videoIds), VideoTask::getId);
-        Map<Long, ImageTask> images = imageIds.isEmpty() ? Map.of()
-                : byId(imageTaskMapper.selectBatchIds(imageIds), ImageTask::getId);
+        Map<Long, GenerationTask> videos = videoIds.isEmpty() ? Map.of()
+                : byId(taskMapper.selectBatchIds(TaskType.VIDEO, videoIds), GenerationTask::getId);
+        Map<Long, GenerationTask> images = imageIds.isEmpty() ? Map.of()
+                : byId(taskMapper.selectBatchIds(TaskType.IMAGE, imageIds), GenerationTask::getId);
         Map<Long, User> users = userIds.isEmpty() ? Map.of()
                 : byId(userMapper.selectBatchIds(userIds), User::getId);
 
         var records = page.getRecords().stream().map(item -> {
-            User user = users.get(item.getUserId());
-            Object task = "VIDEO".equals(item.getFeedType()) ? videos.get(item.getId()) : images.get(item.getId());
+            User user = item.getUserId() == null ? null : users.get(item.getUserId());
+            GenerationTask task = "VIDEO".equals(item.getFeedType())
+                    ? videos.get(item.getId()) : images.get(item.getId());
             return AdminFeedItem.builder()
                     .type(item.getFeedType())
                     .id(item.getId())

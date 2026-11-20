@@ -86,5 +86,4 @@ VALUES
 --          再把下面的 'your_username' 换成登录名，取消注释后执行。
 --    说明：管理员账号不在本文件初始化，表为空时由管理后台启动时根据环境变量 AIVIDEO_ADMIN_PASSWORD 自动创建。
 -- ----------------------------------------------------------------------------
--- UPDATE t_video_task SET user_id = (SELECT id FROM t_user WHERE username = 'your_username') WHERE user_id IS NULL;
--- UPDATE t_image_task SET user_id = (SELECT id FROM t_user WHERE username = 'your_username') WHERE user_id IS NULL;
+-- UPDATE t_generation_task SET user_id = (SELECT id FROM t_user WHERE username = 'your_username') WHERE user_id IS NULL;

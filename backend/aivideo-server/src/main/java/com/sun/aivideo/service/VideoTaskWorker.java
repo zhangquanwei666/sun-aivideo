@@ -12,9 +12,10 @@ import com.sun.aivideo.ai.video.model.VideoSubmitResult;
 import com.sun.aivideo.ai.video.model.VideoTaskResult;
 import com.sun.aivideo.config.AiVideoProperties;
 import com.sun.aivideo.config.AsyncConfig;
-import com.sun.aivideo.dao.VideoTaskMapper;
+import com.sun.aivideo.dao.GenerationTaskMapper;
+import com.sun.aivideo.entity.GenerationTask;
+import com.sun.aivideo.entity.TaskType;
 import com.sun.aivideo.entity.ModelConfig;
-import com.sun.aivideo.entity.VideoTask;
 import com.sun.aivideo.common.enums.TaskStatus;
 import com.sun.aivideo.model.bo.VideoCostBO;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class VideoTaskWorker {
 
-    private final VideoTaskMapper videoTaskMapper;
+    private final GenerationTaskMapper taskMapper;
     private final ModelConfigService modelConfigService;
     private final PromptEnhancer promptEnhancer;
     private final CostService costService;
@@ -52,11 +53,11 @@ public class VideoTaskWorker {
 
     @Async(AsyncConfig.VIDEO_EXECUTOR)
     public void submitAsync(Long taskId) {
-        VideoTask task = videoTaskMapper.selectById(taskId);
+        GenerationTask task = taskMapper.selectById(TaskType.VIDEO, taskId);
         if (task == null) {
             return;
         }
-        VideoTask update = new VideoTask();
+        GenerationTask update = new GenerationTask();
         update.setId(taskId);
         try (var permit = invocationGuard.acquire(task.getUserId())) {
             ModelConfig model = modelConfigService.getEnabledByCode(task.getModelCode());
@@ -87,7 +88,7 @@ public class VideoTaskWorker {
                     : credentials.forTask(task.getUserId(), task.getProvider(), task.getCredentialVersionId()));
             update.setProviderTaskId(result.getProviderTaskId());
             update.setStatus(toTaskStatus(result.getState()).name());
-            videoTaskMapper.updateById(update);
+            taskMapper.updateById(TaskType.VIDEO, update);
         } catch (Exception e) {
             log.warn("提交视频任务失败 id={}：{}", taskId, e.getMessage());
             update.setErrorCode(e instanceof AiClientException ace ? ace.getErrorCode() : "SUBMIT_FAILED");
@@ -97,15 +98,15 @@ public class VideoTaskWorker {
 
     /** 轮询所有进行中的任务 */
     public void pollActiveTasks() {
-        videoTaskMapper.failStaleSubmissions(properties.getPolling().getTimeoutMinutes());
-        List<VideoTask> tasks = videoTaskMapper.selectActiveTasks(TaskStatus.POLLING);
-        for (VideoTask task : tasks) {
+        taskMapper.failStaleVideoSubmissions(properties.getPolling().getTimeoutMinutes());
+        List<GenerationTask> tasks = taskMapper.selectActiveVideos(TaskStatus.POLLING);
+        for (GenerationTask task : tasks) {
             try (var permit = invocationGuard.acquire(task.getUserId())) {
                 pollOne(task);
             } catch (Exception e) {
                 if (e instanceof com.sun.aivideo.common.exception.BizException
                         || (e instanceof AiClientException ace && java.util.Set.of("KEY_INVALID", "MODEL_FORBIDDEN").contains(ace.getErrorCode()))) {
-                    VideoTask failed = new VideoTask(); failed.setId(task.getId()); failed.setErrorCode("CREDENTIAL_UNAVAILABLE");
+                    GenerationTask failed = new GenerationTask(); failed.setId(task.getId()); failed.setErrorCode("CREDENTIAL_UNAVAILABLE");
                     finishAsFailed(task, failed, TaskStatus.FAILED, e.getMessage());
                 }
                 log.warn("轮询任务失败 id={}：{}", task.getId(), e.getMessage());
@@ -115,7 +116,7 @@ public class VideoTaskWorker {
 
     // ------------------------------------------------------------------
 
-    private String enhanceIfNeeded(VideoTask task, VideoMode mode, VideoTask update) {
+    private String enhanceIfNeeded(GenerationTask task, VideoMode mode, GenerationTask update) {
         if (!Boolean.TRUE.equals(task.getEnhancePrompt())) {
             return task.getPrompt();
         }
@@ -139,11 +140,11 @@ public class VideoTaskWorker {
         }
     }
 
-    private void pollOne(VideoTask task) {
+    private void pollOne(GenerationTask task) {
         LocalDateTime now = LocalDateTime.now();
         if (task.getCreatedAt() != null
                 && task.getCreatedAt().plusMinutes(properties.getPolling().getTimeoutMinutes()).isBefore(now)) {
-            VideoTask update = new VideoTask();
+            GenerationTask update = new GenerationTask();
             update.setId(task.getId());
             update.setErrorCode("TIMEOUT");
             finishAsFailed(task, update, TaskStatus.TIMEOUT,
@@ -155,7 +156,7 @@ public class VideoTaskWorker {
                 : credentials.forTask(task.getUserId(), task.getProvider(), task.getCredentialVersionId()));
         TaskStatus status = toTaskStatus(r.getState());
 
-        VideoTask update = new VideoTask();
+        GenerationTask update = new GenerationTask();
         update.setId(task.getId());
         update.setProviderSubmitTime(r.getSubmitTime());
         update.setProviderScheduledTime(r.getScheduledTime());
@@ -165,7 +166,7 @@ public class VideoTaskWorker {
         switch (status) {
             case PENDING, RUNNING -> {
                 update.setStatus(status.name());
-                videoTaskMapper.updateById(update);
+                taskMapper.updateById(TaskType.VIDEO, update);
             }
             case SUCCEEDED -> onSucceeded(task, update, r, now);
             default -> {
@@ -176,7 +177,7 @@ public class VideoTaskWorker {
         }
     }
 
-    private void onSucceeded(VideoTask task, VideoTask update, VideoTaskResult r, LocalDateTime now) {
+    private void onSucceeded(GenerationTask task, GenerationTask update, VideoTaskResult r, LocalDateTime now) {
         ModelConfig model = modelConfigService.findByCode(task.getModelCode());
         int billedSeconds = r.getBilledDuration() != null ? r.getBilledDuration() : task.getDuration();
         VideoCostBO videoCost = "MOCK".equals(task.getProvider())
@@ -199,23 +200,23 @@ public class VideoTaskWorker {
         update.setGenerateMs(between(r.getScheduledTime(), r.getEndTime()));
         update.setFinishedAt(now);
         update.setTotalElapsedMs(totalElapsed(task.getCreatedAt(), r.getEndTime(), now));
-        videoTaskMapper.updateById(update);
+        taskMapper.updateById(TaskType.VIDEO, update);
         log.info("视频生成完成 id={} 耗时={}ms 费用={}元", task.getId(), update.getTotalElapsedMs(), update.getTotalCost());
 
         if (properties.getStorage().isDownloadVideo() && r.getVideoData() == null) {
             fileStorageService.downloadVideoAsync(task.getId(), r.getVideoUrl()).thenAccept(path -> {
                 if (path != null) {
-                    VideoTask u = new VideoTask();
+                    GenerationTask u = new GenerationTask();
                     u.setId(task.getId());
                     u.setLocalVideoPath(path);
-                    videoTaskMapper.updateById(u);
+                    taskMapper.updateById(TaskType.VIDEO, u);
                 }
             });
         }
     }
 
     /** 失败/取消/超时：视频不计费，只保留已产生的润色费用 */
-    private void finishAsFailed(VideoTask task, VideoTask update, TaskStatus status, String message) {
+    private void finishAsFailed(GenerationTask task, GenerationTask update, TaskStatus status, String message) {
         LocalDateTime now = LocalDateTime.now();
         BigDecimal llmCost = update.getLlmCost() != null ? update.getLlmCost()
                 : (task.getLlmCost() == null ? BigDecimal.ZERO : task.getLlmCost());
@@ -225,7 +226,7 @@ public class VideoTaskWorker {
         update.setTotalCost(llmCost.setScale(4, RoundingMode.HALF_UP));
         update.setFinishedAt(now);
         update.setTotalElapsedMs(task.getCreatedAt() == null ? null : Duration.between(task.getCreatedAt(), now).toMillis());
-        videoTaskMapper.updateById(update);
+        taskMapper.updateById(TaskType.VIDEO, update);
     }
 
     /** AI 模块的厂商状态 → 业务任务状态 */

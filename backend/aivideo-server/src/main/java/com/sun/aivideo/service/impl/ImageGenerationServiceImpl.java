@@ -9,12 +9,13 @@ import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ImageTaskConverter;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.dao.ModelConfigMapper;
-import com.sun.aivideo.dao.ImageTaskMapper;
 import com.sun.aivideo.dao.bo.ImageModelStatBO;
 import com.sun.aivideo.dao.bo.ImageStatsBO;
+import com.sun.aivideo.dao.GenerationTaskMapper;
+import com.sun.aivideo.entity.GenerationTask;
+import com.sun.aivideo.entity.TaskType;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.entity.ModelType;
-import com.sun.aivideo.entity.ImageTask;
 import com.sun.aivideo.model.dto.ImageGenerateDTO;
 import com.sun.aivideo.model.vo.ImageStatsVO;
 import com.sun.aivideo.model.vo.ImageTaskVO;
@@ -45,7 +46,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     private static final String FILES_PREFIX = "/files/";
 
-    private final ImageTaskMapper imageTaskMapper;
+    private final GenerationTaskMapper taskMapper;
     private final ModelConfigMapper modelConfigMapper;
     private final ImageModelConfigService imageModelConfigService;
     private final ImageGenerationStrategyFactory imageStrategyFactory;
@@ -66,7 +67,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         List<String> references = dto.getReferenceImages() == null ? List.of()
                 : dto.getReferenceImages().stream().map(String::trim).filter(StringUtils::hasText).toList();
 
-        ImageTask task = new ImageTask();
+        GenerationTask task = new GenerationTask();
         Long userId = StpUtil.getLoginIdAsLong();
         credentials.lockUser(userId);
         task.setUserId(userId);
@@ -93,21 +94,21 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         task.setLlmCost(BigDecimal.ZERO);
         task.setTotalCost(BigDecimal.ZERO);
         task.setCreatedAt(LocalDateTime.now());
-        imageTaskMapper.insert(task);
+        taskMapper.insert(TaskType.IMAGE, task);
         log.info("创建文生图任务 id={} model={} provider={}", task.getId(), task.getModelCode(), task.getProvider());
 
         taskDispatch.afterCommit(() -> imageTaskWorker.generateAsync(task.getId()), () -> {
-            ImageTask rejected = new ImageTask(); rejected.setId(task.getId());
+            GenerationTask rejected = new GenerationTask(); rejected.setId(task.getId());
             rejected.setStatus(TaskStatus.FAILED.name()); rejected.setErrorCode("SERVER_BUSY");
             rejected.setErrorMessage("生成队列已满，请稍后重试；未调用厂商");
-            rejected.setFinishedAt(LocalDateTime.now()); imageTaskMapper.updateById(rejected);
+            rejected.setFinishedAt(LocalDateTime.now()); taskMapper.updateById(TaskType.IMAGE, rejected);
         });
         return ImageTaskConverter.toVO(task, model, estimate(task, model));
     }
 
     @Override
     public ImageTaskVO detail(Long id) {
-        ImageTask task = imageTaskMapper.selectById(id);
+        GenerationTask task = taskMapper.selectById(TaskType.IMAGE, id);
         if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
             throw new BizException(ErrorCode.IMAGE_NOT_FOUND, id);
         }
@@ -122,7 +123,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         }
         Map<String, ModelConfig> models = modelMap();
         Map<Long, ImageTaskVO> result = new LinkedHashMap<>();
-        for (ImageTask t : imageTaskMapper.selectBatchIds(ids)) {
+        for (GenerationTask t : taskMapper.selectBatchIds(TaskType.IMAGE, ids)) {
             if (!java.util.Objects.equals(t.getUserId(), StpUtil.getLoginIdAsLong())) continue;
             ModelConfig model = models.get(t.getModelCode());
             result.put(t.getId(), ImageTaskConverter.toVO(t, model, estimate(t, model)));
@@ -132,7 +133,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     @Override
     public void delete(Long id) {
-        ImageTask task = imageTaskMapper.selectById(id);
+        GenerationTask task = taskMapper.selectById(TaskType.IMAGE, id);
         if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
             throw new BizException(ErrorCode.IMAGE_DELETED, id);
         }
@@ -140,7 +141,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         if (status == null || !status.isFinished()) {
             throw new BizException(ErrorCode.IMAGE_IN_PROGRESS);
         }
-        if (imageTaskMapper.softDeleteById(id, StpUtil.getLoginIdAsLong()) == 0) {
+        if (taskMapper.softDeleteById(TaskType.IMAGE, id, StpUtil.getLoginIdAsLong()) == 0) {
             throw new BizException(ErrorCode.IMAGE_DELETED, id);
         }
         log.info("图片任务已删除（逻辑删除）id={}", id);
@@ -148,7 +149,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     @Override
     public ImageStatsVO stats() {
-        ImageStatsBO bo = imageTaskMapper.selectStats(StpUtil.getLoginIdAsLong());
+        ImageStatsBO bo = taskMapper.selectImageStats(StpUtil.getLoginIdAsLong());
         Map<String, ModelConfig> models = modelMap();
 
         ImageStatsVO vo = new ImageStatsVO();
@@ -162,7 +163,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         vo.setTotalLlmCost(bo.getTotalLlmCost() == null ? BigDecimal.ZERO : bo.getTotalLlmCost().setScale(6, RoundingMode.HALF_UP));
         vo.setAvgCost(money(bo.getAvgCost()));
         vo.setAvgElapsedMs(bo.getAvgElapsedMs() == null ? null : bo.getAvgElapsedMs().longValue());
-        vo.setByModel(imageTaskMapper.selectStatsByModel(StpUtil.getLoginIdAsLong()).stream()
+        vo.setByModel(taskMapper.selectImageStatsByModel(StpUtil.getLoginIdAsLong()).stream()
                 .map(m -> toModelStat(m, models.get(m.getModelCode())))
                 .toList());
         return vo;
@@ -206,7 +207,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     }
 
     /** 未完成任务的预估费用：每张单价（人民币）× 张数 + 已产生的润色费用 */
-    private BigDecimal estimate(ImageTask task, ModelConfig model) {
+    private BigDecimal estimate(GenerationTask task, ModelConfig model) {
         if ("MOCK".equals(task.getProvider())) return BigDecimal.ZERO;
         if (model == null) {
             return null;

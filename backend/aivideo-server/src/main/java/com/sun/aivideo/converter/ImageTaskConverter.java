@@ -2,8 +2,8 @@ package com.sun.aivideo.converter;
 
 import com.sun.aivideo.common.enums.ImageProvider;
 import com.sun.aivideo.common.enums.TaskStatus;
+import com.sun.aivideo.entity.GenerationTask;
 import com.sun.aivideo.entity.ModelConfig;
-import com.sun.aivideo.entity.ImageTask;
 import com.sun.aivideo.model.vo.ImageTaskVO;
 
 import java.math.BigDecimal;
@@ -19,7 +19,7 @@ public final class ImageTaskConverter {
      * @param model         任务对应的模型配置，可为 null
      * @param estimatedCost 未完成任务的预估费用（人民币），可为 null
      */
-    public static ImageTaskVO toVO(ImageTask t, ModelConfig model, BigDecimal estimatedCost) {
+    public static ImageTaskVO toVO(GenerationTask t, ModelConfig model, BigDecimal estimatedCost) {
         TaskStatus status = TaskStatus.of(t.getStatus());
         boolean finished = status != null && status.isFinished();
 

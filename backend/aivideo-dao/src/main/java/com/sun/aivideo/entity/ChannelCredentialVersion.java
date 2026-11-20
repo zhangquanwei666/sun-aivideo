@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 /** 不生成 toString，避免数据库密文进入日志。 */
 @Getter @Setter
-@TableName("t_user_channel_credential_version")
+@TableName("t_user_channel_credential")
 public class ChannelCredentialVersion {
     @TableId(type = IdType.AUTO) private Long id;
     private Long userId;

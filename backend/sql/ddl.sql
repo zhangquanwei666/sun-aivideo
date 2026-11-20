@@ -2,7 +2,7 @@
 -- Sun AI Video · DDL（建表脚本）
 --
 -- 用途    ：创建项目所需的全部数据表。应用启动时不会自动建表，需要手动执行本脚本。
--- 数据库  ：MySQL 5.7+ / 8.x，字符集 utf8mb4
+-- 数据库  ：MySQL 8.0+，字符集 utf8mb4
 -- 执行顺序：1. 先执行本文件 ddl.sql（建表）
 --          2. 再执行 dml.sql（插入初始数据）
 -- 重复执行：使用 CREATE TABLE IF NOT EXISTS，表已存在时跳过，不会删除或修改已有数据
@@ -10,11 +10,10 @@
 --
 -- 包含的表：
 --   t_model_config        视频和图片模型配置（模型目录、生成参数与单价）
---   t_video_task          视频生成任务（每条视频的请求参数、生成结果、各阶段耗时与费用）
---   t_image_task          文生图任务（每张图片的请求参数、生成结果、耗时与费用）
+--   t_generation_task     图片与视频生成任务（请求参数、生成结果、耗时与费用）
 --   t_user                前台用户（注册登录、账号状态）
 --   t_admin               管理后台账号（与前台用户分开）
---   t_user_channel_credential_version 用户厂商密钥及版本
+--   t_user_channel_credential 用户厂商密钥及版本
 -- ============================================================================
 
 
@@ -57,145 +56,88 @@ CREATE TABLE IF NOT EXISTS t_model_config (
 
 
 -- ----------------------------------------------------------------------------
--- 2. 视频生成任务表 t_video_task
---    用途：每次点击「生成」产生一条记录，保存请求参数、厂商任务 ID、视频地址，
---          以及生成耗时（润色 / 排队 / 生成 / 总耗时）和费用（视频费用 + 润色费用）。
---          前端的生成记录、任务详情、用量与费用统计都来自这张表。
---    状态流转：SUBMITTING → PENDING → RUNNING → SUCCEEDED / FAILED / CANCELED / TIMEOUT
+-- 2. 图片与视频生成任务表
+--    联合主键 (task_type, id) 保留历史 ID。旧分表执行 20261120_merge_generation_tasks.sql。
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS t_video_task (
-    id                      BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（任务 ID）',
-    user_id                 BIGINT         NULL     COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）',
-    credential_version_id BIGINT NULL COMMENT '生成凭证版本',
+CREATE TABLE IF NOT EXISTS t_generation_task (
+    task_type                 VARCHAR(8) NOT NULL COMMENT 'VIDEO 视频 / IMAGE 图片',
+    id                        BIGINT NOT NULL AUTO_INCREMENT COMMENT '任务 ID，与 task_type 组成主键',
+    user_id                   BIGINT NULL COMMENT '任务所属用户，历史记录可为空',
+    credential_version_id     BIGINT NULL COMMENT '生成凭证版本',
     llm_credential_version_id BIGINT NULL COMMENT '润色凭证版本',
-    enhance_warning VARCHAR(255) NULL COMMENT '润色降级提示',
-    provider                VARCHAR(32)    NOT NULL COMMENT '实际调用的厂商：DASHSCOPE / GEMINI / MOCK（未配置 API Key 时为 MOCK）',
-    model_code              VARCHAR(64)    NOT NULL COMMENT '模型编码，对应 t_model_config 中 VIDEO 类型',
-    mode                    VARCHAR(8)     NOT NULL COMMENT '生成方式：T2V 文生视频 / I2V 图生视频',
-    status                  VARCHAR(16)    NOT NULL COMMENT '任务状态：SUBMITTING/PENDING/RUNNING/SUCCEEDED/FAILED/CANCELED/TIMEOUT',
+    provider                  VARCHAR(32) NOT NULL COMMENT '实际调用的厂商：DASHSCOPE / GEMINI / MOCK',
+    model_code                VARCHAR(64) NOT NULL COMMENT '模型编码，按 task_type 对应 t_model_config.model_type',
+    status                    VARCHAR(16)    NOT NULL COMMENT '任务状态：SUBMITTING/PENDING/RUNNING/SUCCEEDED/FAILED/CANCELED/TIMEOUT',
 
-    -- 请求参数
-    prompt                  VARCHAR(5000)  NULL     COMMENT '用户输入的原始提示词',
-    final_prompt            TEXT           NULL     COMMENT '实际提交给视频模型的提示词（开启润色时为润色后的内容）',
-    negative_prompt         VARCHAR(500)   NULL     COMMENT '反向提示词（不希望出现的内容）',
-    image_url               VARCHAR(1024)  NULL     COMMENT '图生视频的首帧图片地址（公网地址或 /files/ 本地路径）',
-    resolution              VARCHAR(8)     NOT NULL COMMENT '分辨率：480P / 720P / 1080P',
-    ratio                   VARCHAR(8)     NULL     COMMENT '画幅比例，如 16:9（百炼图生视频为空，画幅跟随图片）',
-    duration                INT            NOT NULL COMMENT '请求时长（秒）',
-    enhance_prompt          TINYINT        NOT NULL DEFAULT 0 COMMENT '是否用大模型润色提示词：1 是 / 0 否',
-    prompt_extend           TINYINT        NOT NULL DEFAULT 1 COMMENT '是否开启百炼智能改写（prompt_extend）：1 是 / 0 否',
-    watermark               TINYINT        NOT NULL DEFAULT 0 COMMENT '是否添加「AI生成」水印：1 是 / 0 否',
-    audio                   TINYINT        NULL     COMMENT '是否生成音频（仅部分模型支持）：1 是 / 0 否',
-    seed                    BIGINT         NULL     COMMENT '随机种子，为空时随机',
+    -- 共享参数、结果与费用
+    prompt                    VARCHAR(5000)  NULL     COMMENT '用户输入的原始提示词',
+    final_prompt              TEXT NULL COMMENT '实际提交给模型的提示词',
+    enhance_prompt            TINYINT        NOT NULL DEFAULT 0 COMMENT '是否用大模型润色提示词：1 是 / 0 否',
+    enhance_warning           VARCHAR(255) NULL COMMENT '润色降级提示',
+    error_code                VARCHAR(64)    NULL     COMMENT '失败时的错误码',
+    error_message             VARCHAR(1024)  NULL     COMMENT '失败时的错误信息',
+    currency                  VARCHAR(8)     NULL     COMMENT '单价币种：CNY / USD，取自 t_model_config.currency',
+    unit_price                DECIMAL(10, 4) NULL COMMENT '按 currency 计价，视频每秒，图片每张',
+    llm_input_tokens          INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输入 tokens',
+    llm_output_tokens         INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输出 tokens',
+    llm_cost                  DECIMAL(12, 6) NOT NULL DEFAULT 0 COMMENT '提示词润色费用（按 tokens 计算）',
+    total_cost                DECIMAL(12, 4) NOT NULL DEFAULT 0 COMMENT '生成费用与润色费用之和（人民币）',
+    enhance_ms                BIGINT         NULL     COMMENT '提示词润色耗时',
+    generate_ms               BIGINT         NULL     COMMENT '厂商生成耗时 = 完成时间 - 开始执行时间',
+    total_elapsed_ms          BIGINT         NULL     COMMENT '总耗时 = 厂商完成时间 - 用户点击生成的时间',
+    finished_at               DATETIME(3)    NULL     COMMENT '本系统记录的任务结束时间',
+    deleted                   TINYINT        NOT NULL DEFAULT 0 COMMENT '是否已删除：0 正常 / 1 已删除（前端不再展示，费用统计仍计入）',
+    deleted_at                DATETIME(3)    NULL     COMMENT '删除时间',
+    created_at                DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（用户点击生成的时间）',
+    updated_at                DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
 
-    -- 生成结果
-    provider_task_id        VARCHAR(128)   NULL     COMMENT '厂商返回的任务 ID，用于轮询结果',
-    remote_video_url        VARCHAR(2048)  NULL     COMMENT '厂商返回的视频地址（百炼只保留 24 小时）',
-    local_video_path        VARCHAR(512)   NULL     COMMENT '视频保存到本地后的访问路径（/files/videos/...），Gemini 直接返回视频内容时也存这里',
-    error_code              VARCHAR(64)    NULL     COMMENT '失败时的错误码',
-    error_message           VARCHAR(1024)  NULL     COMMENT '失败时的错误信息',
+    -- 视频专属字段
+    mode                      VARCHAR(8)     NULL COMMENT '生成方式：T2V 文生视频 / I2V 图生视频',
+    negative_prompt           VARCHAR(500)   NULL     COMMENT '反向提示词（不希望出现的内容）',
+    image_url                 VARCHAR(1024)  NULL     COMMENT '图生视频的首帧图片地址（公网地址或 /files/ 本地路径）',
+    resolution                VARCHAR(8)     NULL COMMENT '分辨率：480P / 720P / 1080P',
+    ratio                     VARCHAR(8)     NULL     COMMENT '画幅比例，如 16:9（百炼图生视频为空，画幅跟随图片）',
+    duration                  INT            NULL COMMENT '请求时长（秒）',
+    prompt_extend             TINYINT        NULL COMMENT '是否开启百炼智能改写（prompt_extend）：1 是 / 0 否',
+    watermark                 TINYINT        NULL COMMENT '是否添加「AI生成」水印：1 是 / 0 否',
+    audio                     TINYINT        NULL     COMMENT '是否生成音频（仅部分模型支持）：1 是 / 0 否',
+    seed                      BIGINT         NULL     COMMENT '随机种子，为空时随机',
+    provider_task_id          VARCHAR(128)   NULL     COMMENT '厂商返回的任务 ID，用于轮询结果',
+    remote_video_url          VARCHAR(2048)  NULL     COMMENT '厂商返回的视频地址（百炼只保留 24 小时）',
+    local_video_path          VARCHAR(512)   NULL     COMMENT '视频保存到本地后的访问路径（/files/videos/...），Gemini 直接返回视频内容时也存这里',
+    billed_duration           INT            NULL     COMMENT '计费时长（秒），以厂商返回为准',
+    video_cost                DECIMAL(12, 4) NULL COMMENT '视频生成费用（元）= 单价折算人民币 × 计费时长（失败不计费）',
+    queue_ms                  BIGINT         NULL     COMMENT '厂商排队耗时 = 开始执行时间 - 提交时间',
+    provider_submit_time      DATETIME(3)    NULL     COMMENT '厂商侧：任务提交时间',
+    provider_scheduled_time   DATETIME(3)    NULL     COMMENT '厂商侧：任务开始执行时间',
+    provider_end_time         DATETIME(3)    NULL     COMMENT '厂商侧：任务完成时间',
 
-    -- 费用（元）
-    billed_duration         INT            NULL     COMMENT '计费时长（秒），以厂商返回为准',
-    currency                VARCHAR(8)     NULL     COMMENT '单价币种：CNY / USD，取自 t_model_config.currency',
-    unit_price              DECIMAL(10, 4) NULL     COMMENT '视频每秒单价（按 currency），取自 t_model_config 对应分辨率的价格',
-    video_cost              DECIMAL(12, 4) NOT NULL DEFAULT 0 COMMENT '视频生成费用（元）= 单价折算人民币 × 计费时长（失败不计费）',
-    llm_input_tokens        INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输入 tokens',
-    llm_output_tokens       INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输出 tokens',
-    llm_cost                DECIMAL(12, 6) NOT NULL DEFAULT 0 COMMENT '提示词润色费用（按 tokens 计算）',
-    total_cost              DECIMAL(12, 4) NOT NULL DEFAULT 0 COMMENT '总费用 = 视频生成费用 + 提示词润色费用',
+    -- 图片专属字段
+    reference_images          TEXT NULL COMMENT '参考图，逗号分隔的本地路径',
+    aspect_ratio              VARCHAR(8)     NULL COMMENT '画幅比例，如 16:9',
+    image_size                VARCHAR(4)     NULL COMMENT '清晰度：1K / 2K / 4K',
+    image_count               INT            NULL COMMENT '生成张数',
+    image_paths               VARCHAR(2048)  NULL     COMMENT '生成的图片，逗号分隔的本地访问路径（/files/generated/...）',
+    image_cost                DECIMAL(12, 4) NULL COMMENT '图片费用（人民币）= 单价折算人民币 × 张数（失败不计费）',
+    provider_input_tokens     INT            NULL     COMMENT '厂商返回的输入 tokens（仅供参考）',
+    provider_output_tokens    INT            NULL     COMMENT '厂商返回的输出 tokens（仅供参考）',
 
-    -- 耗时（毫秒）
-    enhance_ms              BIGINT         NULL     COMMENT '提示词润色耗时',
-    queue_ms                BIGINT         NULL     COMMENT '厂商排队耗时 = 开始执行时间 - 提交时间',
-    generate_ms             BIGINT         NULL     COMMENT '厂商生成耗时 = 完成时间 - 开始执行时间',
-    total_elapsed_ms        BIGINT         NULL     COMMENT '总耗时 = 厂商完成时间 - 用户点击生成的时间',
-    provider_submit_time    DATETIME(3)    NULL     COMMENT '厂商侧：任务提交时间',
-    provider_scheduled_time DATETIME(3)    NULL     COMMENT '厂商侧：任务开始执行时间',
-    provider_end_time       DATETIME(3)    NULL     COMMENT '厂商侧：任务完成时间',
-    finished_at             DATETIME(3)    NULL     COMMENT '本系统记录的任务结束时间',
-
-    -- 逻辑删除（前端删除只是隐藏，数据与本地视频文件都保留）
-    deleted                 TINYINT        NOT NULL DEFAULT 0 COMMENT '是否已删除：0 正常 / 1 已删除（前端不再展示，费用统计仍计入）',
-    deleted_at              DATETIME(3)    NULL     COMMENT '删除时间',
-
-    created_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（用户点击生成的时间）',
-    updated_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
-    KEY idx_video_task_credential (credential_version_id),
-    KEY idx_video_task_llm_credential (llm_credential_version_id),
-    KEY idx_video_task_user (user_id) COMMENT '按用户查询生成记录与统计费用',
-    KEY idx_video_task_status (status) COMMENT '轮询进行中的任务、按状态筛选',
-    KEY idx_video_task_created (created_at) COMMENT '按创建时间排序与统计'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '视频生成任务（含耗时与费用统计）';
-
-
--- ----------------------------------------------------------------------------
--- 3. 文生图任务表 t_image_task
---    用途：每次在「文生图」模式下点击生成产生一条记录，保存请求参数、生成的图片（本地路径），
---          以及耗时（润色 / 生成 / 总耗时）和费用（图片费用 + 润色费用，统一为人民币）。
---          前端生成记录与图片和视频合并展示，生成的图片可作为图生视频的首帧。
---    状态流转：SUBMITTING → RUNNING → SUCCEEDED / FAILED
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS t_image_task (
-    id                      BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（任务 ID）',
-    user_id                 BIGINT         NULL     COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）',
-    credential_version_id BIGINT NULL COMMENT '生成凭证版本',
-    llm_credential_version_id BIGINT NULL COMMENT '润色凭证版本',
-    enhance_warning VARCHAR(255) NULL COMMENT '润色降级提示',
-    provider                VARCHAR(32)    NOT NULL COMMENT '实际调用的厂商：DASHSCOPE / GEMINI / MOCK（未配置 API Key 时为 MOCK）',
-    model_code              VARCHAR(64)    NOT NULL COMMENT '模型编码，对应 t_model_config 中 IMAGE 类型',
-    status                  VARCHAR(16)    NOT NULL COMMENT '任务状态：SUBMITTING/RUNNING/SUCCEEDED/FAILED',
-
-    -- 请求参数
-    prompt                  VARCHAR(5000)  NOT NULL COMMENT '用户输入的原始提示词',
-    final_prompt            TEXT           NULL     COMMENT '实际提交给模型的提示词（开启润色时为润色后的内容）',
-    enhance_prompt          TINYINT        NOT NULL DEFAULT 0 COMMENT '是否用大模型润色提示词：1 是 / 0 否',
-    reference_images        VARCHAR(4000)  NULL     COMMENT '参考图，逗号分隔的本地路径（/files/...）',
-    aspect_ratio            VARCHAR(8)     NOT NULL COMMENT '画幅比例，如 16:9',
-    image_size              VARCHAR(4)     NOT NULL COMMENT '清晰度：1K / 2K / 4K',
-    image_count             INT            NOT NULL DEFAULT 1 COMMENT '生成张数',
-
-    -- 生成结果
-    image_paths             VARCHAR(2048)  NULL     COMMENT '生成的图片，逗号分隔的本地访问路径（/files/generated/...）',
-    error_code              VARCHAR(64)    NULL     COMMENT '失败时的错误码',
-    error_message           VARCHAR(1024)  NULL     COMMENT '失败时的错误信息',
-
-    -- 费用
-    currency                VARCHAR(8)     NULL     COMMENT '单价的计价币种：CNY / USD',
-    unit_price              DECIMAL(10, 4) NULL     COMMENT '每张单价（按 currency），取自 t_model_config 对应清晰度的价格',
-    image_cost              DECIMAL(12, 4) NOT NULL DEFAULT 0 COMMENT '图片费用（人民币）= 单价折算人民币 × 张数（失败不计费）',
-    llm_input_tokens        INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输入 tokens',
-    llm_output_tokens       INT            NOT NULL DEFAULT 0 COMMENT '提示词润色的输出 tokens',
-    llm_cost                DECIMAL(12, 6) NOT NULL DEFAULT 0 COMMENT '提示词润色费用（人民币）',
-    total_cost              DECIMAL(12, 4) NOT NULL DEFAULT 0 COMMENT '总费用（人民币）= 图片费用 + 提示词润色费用',
-    provider_input_tokens   INT            NULL     COMMENT '厂商返回的输入 tokens（仅供参考）',
-    provider_output_tokens  INT            NULL     COMMENT '厂商返回的输出 tokens（仅供参考）',
-
-    -- 耗时（毫秒）
-    enhance_ms              BIGINT         NULL     COMMENT '提示词润色耗时',
-    generate_ms             BIGINT         NULL     COMMENT '厂商生成耗时（同步调用的请求耗时）',
-    total_elapsed_ms        BIGINT         NULL     COMMENT '总耗时 = 完成时间 - 用户点击生成的时间',
-    finished_at             DATETIME(3)    NULL     COMMENT '任务结束时间',
-
-    -- 逻辑删除（前端删除只是隐藏，数据与本地图片文件都保留）
-    deleted                 TINYINT        NOT NULL DEFAULT 0 COMMENT '是否已删除：0 正常 / 1 已删除（前端不再展示，费用统计仍计入）',
-    deleted_at              DATETIME(3)    NULL     COMMENT '删除时间',
-
-    created_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（用户点击生成的时间）',
-    updated_at              DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
-    KEY idx_image_task_credential (credential_version_id),
-    KEY idx_image_task_llm_credential (llm_credential_version_id),
-    KEY idx_image_task_user (user_id) COMMENT '按用户查询生成记录与统计费用',
-    KEY idx_image_task_status (status) COMMENT '启动时清理中断的任务、按状态统计',
-    KEY idx_image_task_created (created_at) COMMENT '生成记录按时间倒序分页'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '文生图任务（含耗时与费用统计）';
+    PRIMARY KEY (task_type, id),
+    KEY idx_generation_task_id (id),
+    KEY idx_generation_task_type_status (task_type, status, created_at),
+    KEY idx_generation_task_user_type (user_id, task_type),
+    KEY idx_generation_task_feed (deleted, created_at, id),
+    KEY idx_generation_task_user_feed (user_id, deleted, created_at, id),
+    KEY idx_generation_task_credential (credential_version_id, status),
+    KEY idx_generation_task_llm_credential (llm_credential_version_id, status)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 ROW_FORMAT = DYNAMIC COMMENT = '图片与视频生成任务';
 
 
 -- ----------------------------------------------------------------------------
--- 4. 前台用户表 t_user
+-- 3. 前台用户表 t_user
 --    用途：前台（视频生成站）的用户账号。所有人都可以注册；
 --          启用状态的用户配置个人厂商密钥后即可生成。
---    关联：t_video_task.user_id、t_image_task.user_id、t_user_channel_credential_version.user_id → t_user.id
+--    关联：t_generation_task.user_id、t_user_channel_credential.user_id → t_user.id
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS t_user (
     id                BIGINT         AUTO_INCREMENT PRIMARY KEY COMMENT '主键（用户 ID）',
@@ -215,7 +157,7 @@ CREATE TABLE IF NOT EXISTS t_user (
 
 
 -- ----------------------------------------------------------------------------
--- 5. 管理员表 t_admin
+-- 4. 管理员表 t_admin
 --    用途：管理后台（aivideo-admin）的账号，与前台用户完全分开，不能登录前台。
 --    初始化：表为空时，管理后台启动会读取环境变量 AIVIDEO_ADMIN_PASSWORD 自动创建 admin 账号，
 --            密码不写在 SQL 里（仓库是公开的）。
@@ -233,43 +175,9 @@ CREATE TABLE IF NOT EXISTS t_admin (
     UNIQUE KEY uk_admin_username (username)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '管理后台账号';
 
-
--- ============================================================================
--- 表结构变更记录
---   新建的库不需要执行下面的语句（上面的建表语句已经包含）；
---   下面的注释用于了解旧版结构；分表迁移使用 20261120_merge_model_config.sql。
--- ============================================================================
-
--- [2026-11-11] t_video_task 新增逻辑删除字段 deleted、deleted_at（支持在前端删除视频）
--- ALTER TABLE t_video_task
---     ADD COLUMN deleted    TINYINT     NOT NULL DEFAULT 0 COMMENT '是否已删除：0 正常 / 1 已删除（前端不再展示，费用统计仍计入）' AFTER finished_at,
---     ADD COLUMN deleted_at DATETIME(3) NULL COMMENT '删除时间' AFTER deleted;
-
--- [2026-11-11] 新增文生图任务表 t_image_task；模型配置现在存放在 t_model_config。
-
--- [2026-11-11] 接入 Gemini Omni 视频生成：视频模型支持美元计价，一个模型可同时支持文生视频和图生视频
---   执行完下面两条 ALTER 后，再执行 dml.sql 插入 Gemini Omni Flash 模型（已有的模型会跳过）。
--- ALTER TABLE t_model_config
---     MODIFY COLUMN mode VARCHAR(16) NOT NULL COMMENT '支持的生成方式，逗号分隔：T2V 文生视频 / I2V 图生视频，如 T2V,I2V 表示两种都支持',
---     ADD COLUMN currency VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '单价币种：CNY 人民币 / USD 美元（统计时按 aivideo.cost.usd-to-cny 折算成人民币）' AFTER default_duration;
--- ALTER TABLE t_video_task
---     ADD COLUMN currency VARCHAR(8) NULL COMMENT '单价币种：CNY / USD，取自 t_model_config.currency' AFTER billed_duration;
-
--- [2026-11-12] 新增用户登录：新建 t_user、t_admin 两张表，任务表增加 user_id
---   1) 直接执行上面第 4、5 段的两条 CREATE TABLE 语句（已存在时会跳过）；
---   2) 执行下面两条 ALTER，给视频、图片任务加上所属用户；
---   3) 历史任务的 user_id 为空，只在管理后台可见；如需归到某个用户，见 dml.sql 第 3 段。
--- ALTER TABLE t_video_task
---     ADD COLUMN user_id BIGINT NULL COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）' AFTER id,
---     ADD KEY idx_video_task_user (user_id) COMMENT '按用户查询生成记录与统计费用';
--- ALTER TABLE t_image_task
---     ADD COLUMN user_id BIGINT NULL COMMENT '提交任务的用户，关联 t_user.id（加用户功能之前的历史任务为空）' AFTER id,
---     ADD KEY idx_image_task_user (user_id) COMMENT '按用户查询生成记录与统计费用';
-
-
 -- 每行是一个密钥版本。仅当前行使用 current_slot = 1，历史行使用 NULL。
--- 旧双表环境执行 20261120_merge_channel_credentials.sql。
-CREATE TABLE IF NOT EXISTS t_user_channel_credential_version (
+-- 已合并但仍使用旧表名的环境执行 20261120_rename_channel_credential.sql。
+CREATE TABLE IF NOT EXISTS t_user_channel_credential (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     channel_code VARCHAR(32) NOT NULL COMMENT 'DASHSCOPE / GEMINI',

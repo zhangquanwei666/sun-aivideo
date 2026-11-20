@@ -13,11 +13,10 @@
 ## 数据库升级
 
 - 新环境：执行 `backend/sql/ddl.sql`，再执行 `backend/sql/dml.sql`。
-- 已有双表环境：先备份凭证表并停止前台服务及其他凭证写入，在目标库执行 [凭证合表脚本](../backend/sql/20261120_merge_channel_credentials.sql)。结果为 `MERGED` 或 `ALREADY_MERGED` 后启动新版。脚本保留原密文、启停状态和密钥版本 ID，任务表与主密钥沿用原配置。
-- 核对新版正常后，可执行脚本末尾的清理语句，删除保留用于回退的两张旧表及其密文副本。
+- 已合表且仍使用旧表名的环境：停止前台服务，在目标库执行 [凭证表改名 SQL](../backend/sql/20261120_rename_channel_credential.sql)。返回 `RENAMED` 或 `ALREADY_RENAMED` 后启动新版。旧双表环境要先完成合表，再执行改名。
 - 不自动迁移全局平台 Key 到任何用户；历史记录和费用保留，旧任务的凭证版本为空。未排空的旧任务不会使用用户新 Key 冒充原账户恢复。
 
-统一使用凭证版本表 `t_user_channel_credential_version`。每行保存一个密钥版本及其用户、渠道归属。当前版本的 `current_slot` 为 `1`，历史版本为 `NULL`。唯一键 `(user_id, channel_code, current_slot)` 保证每个用户在同一渠道最多一个当前版本，同时允许保留多个历史版本。任务分别保存生成与润色的凭证版本 ID，不保存明文或密文。
+统一使用凭证表 `t_user_channel_credential`。每行保存一个密钥版本及其用户、渠道归属。当前版本的 `current_slot` 为 `1`，历史版本为 `NULL`。唯一键 `(user_id, channel_code, current_slot)` 保证每个用户在同一渠道最多一个当前版本，同时允许保留多个历史版本。任务分别保存生成与润色的凭证版本 ID，不保存明文或密文。
 
 更新或删除配置时清理不再被未完成任务引用的旧密文，保留版本元数据。后续每日清理也会移除已完成任务不再需要的旧密文。当前仍启用/可恢复使用的版本保留密文。
 

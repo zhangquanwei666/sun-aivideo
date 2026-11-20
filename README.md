@@ -13,7 +13,7 @@ sun-aivideo/
 │   ├── aivideo-server/      前台服务：用户登录、图片/视频生成、费用与耗时统计
 │   ├── aivideo-admin/       管理服务：管理员登录、用户管理、全站生成记录
 │   └── sql/                 数据库脚本（手动执行）
-│       ├── ddl.sql          DDL：建表（模型目录 t_model_config，任务 t_video_task、t_image_task）
+│       ├── ddl.sql          DDL：建表（模型目录 t_model_config，任务 t_generation_task）
 │       └── dml.sql          DML：初始化数据（视频模型与单价、文生图模型与单价）
 └── frontend/
     ├── user-frontend/       用户前台 Vue 3.5 · Vite 6（图片/视频生成）
@@ -125,15 +125,15 @@ aivideo-ai-channel-gemini/（com.sun.aivideo.ai.gemini）
 ### aivideo-dao（`com.sun.aivideo.dao` / `entity`）：MyBatis-Plus + XML
 
 ```
-├── entity/                    VideoTask、ModelConfig（@TableName / @TableField 用于 BaseMapper 单表操作）
+├── entity/                    GenerationTask、TaskType、ModelConfig
 ├── dao/
-│   ├── VideoTaskMapper        extends BaseMapper<VideoTask>
-│   ├── ModelConfigMapper      extends BaseMapper<ModelConfig>
+│   ├── GenerationTaskMapper   图片和视频的任务读写，按类型和 ID 定位
+│   ├── ModelConfigMapper      图片和视频的模型目录查询
 │   ├── bo/                    VideoStatsBO、ModelStatBO（统计查询结果）
 │   └── config/                MybatisPlusConfig（@MapperScan、分页插件、时间自动填充）
 └── resources/
     └── mapper/
-        ├── VideoTaskMapper.xml     namespace = com.sun.aivideo.dao.VideoTaskMapper
+        ├── GenerationTaskMapper.xml  namespace = com.sun.aivideo.dao.GenerationTaskMapper
         └── ModelConfigMapper.xml   namespace = com.sun.aivideo.dao.ModelConfigMapper
 ```
 
@@ -143,13 +143,13 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 | Mapper 方法 | XML id | resultMap | 说明 |
 |---|---|---|---|
-| `VideoTaskMapper#selectTaskPage` | `selectTaskPage` | `BaseResultMap` | 分页 + 状态 / 模型 / 关键词筛选（分页由 MyBatis-Plus 插件处理） |
-| `VideoTaskMapper#selectActiveTasks` | `selectActiveTasks` | `BaseResultMap` | 需要轮询厂商的任务 |
-| `VideoTaskMapper#selectStats` | `selectStats` | `VideoStatsResultMap` | 费用与耗时汇总 |
-| `VideoTaskMapper#selectStatsByModel` | `selectStatsByModel` | `ModelStatResultMap` | 按模型分组统计 |
+| `GenerationTaskMapper#selectVideoPage` | `selectVideoPage` | `BaseResultMap` | 按状态、模型和关键词筛选视频任务 |
+| `GenerationTaskMapper#selectActiveVideos` | `selectActiveVideos` | `BaseResultMap` | 需要轮询厂商的视频任务 |
+| `GenerationTaskMapper#selectVideoStats` / `selectImageStats` | 同方法名 | `VideoStatsResultMap` / `ImageStatsResultMap` | 按类型汇总费用与耗时 |
+| `GenerationTaskMapper#selectVideoStatsByModel` / `selectImageStatsByModel` | 同方法名 | `ModelStatResultMap` / `ImageModelStatResultMap` | 按类型和模型分组统计 |
 | `ModelConfigMapper#selectEnabledList` | `selectEnabledList` | `BaseResultMap` | 已启用的模型 |
 | `ModelConfigMapper#selectByModelCode` | `selectByModelCode` | `BaseResultMap` | 按编码查模型 |
-| `insert` / `updateById` / `selectById` / `selectList` | — | — | MyBatis-Plus `BaseMapper` 自带 |
+| `GenerationTaskMapper#insert` / `updateById` / `selectById` | 同方法名 | 按查询需要映射 | 按任务类型写入，按任务类型和 ID 更新或查询 |
 
 ### aivideo-server（`com.sun.aivideo`）
 
@@ -194,12 +194,14 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 | 顺序 | 文件 | 类型 | 做什么 |
 |---|---|---|---|
-| 1 | `backend/sql/ddl.sql` | DDL | 创建统一模型配置表、图片和视频任务表等业务表 |
+| 1 | `backend/sql/ddl.sql` | DDL | 创建统一模型配置表、统一生成任务表等业务表 |
 | 2 | `backend/sql/dml.sql` | DML | 初始化图片和视频模型及单价（`INSERT IGNORE`，重复执行不会覆盖已有数据） |
 
 两个脚本都可以重复执行：建表用 `CREATE TABLE IF NOT EXISTS`，数据用 `INSERT IGNORE`。每条语句和每个字段在脚本里都有注释说明用途。以后新增或修改表结构写进 `ddl.sql`，新增初始数据写进 `dml.sql`。
 
 已有两个模型配置表的环境，先停止旧版服务并备份两张配置表，然后在目标业务库单独执行合表脚本。脚本会建立统一表结构、迁入旧图片配置、补齐默认模型，并在核对一致后删除旧图片表。已有模型配置优先保留。旧视频配置保留原 ID，旧图片配置取得新 ID，历史任务仍按类型和模型编码查找配置。如果结果为 `OLD_TABLE_RETAINED`，先核对差异再清理旧表。[合表迁移 SQL](backend/sql/20261120_merge_model_config.sql)
+
+已有图片、视频任务分表的环境，先备份两张任务表，暂停接单并等待旧任务和下载结束，再停止用户服务和管理服务。执行任务合表脚本，返回 `VERIFIED` 后启动两个新版服务。统一表以 `(task_type, id)` 作为主键，保留两类任务现有 ID、素材路径、耗时、费用、软删除和凭证版本。确认无需回退后，可执行脚本末尾的旧表删除语句。[任务合表 SQL](backend/sql/20261120_merge_generation_tasks.sql)
 
 后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 配置项也写在这些文件里：`aivideo.llm.*`、`aivideo.mock.*` 由 AI 核心模块的 Properties 类读取，`aivideo.dashscope.*`、`aivideo.gemini.*` 分别由对应厂商模块的 Properties 类读取。用户前台配置在 `frontend/user-frontend/.env.*`，管理前端配置在 `frontend/admin-frontend/.env.*`。
 
@@ -283,7 +285,7 @@ mvn -pl aivideo-admin -am spring-boot:run
 
 ### PRO 生产部署
 
-1. 新建生产库依次执行 `backend/sql/ddl.sql` 和 `backend/sql/dml.sql`。已有模型分表的生产库按上文步骤执行 `backend/sql/20261120_merge_model_config.sql`。
+1. 新建生产库依次执行 `backend/sql/ddl.sql` 和 `backend/sql/dml.sql`。已有库按上文步骤迁移模型和任务分表。
 2. 打包后端，并用生产配置启动：
 
 ```bash
@@ -397,7 +399,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 - 前端：视频 / 图片卡片悬停时右上角出现删除按钮，详情面板里也有"删除"按钮，确认后删除。图片的删除规则与视频相同。
 - 规则：
   - 只能删除**已结束**的任务（成功 / 失败 / 取消 / 超时）。生成中的任务不能删除，避免后台还在轮询计费、记录却已经隐藏。
-  - 删除只把 `t_video_task.deleted` 置为 1，并记录 `deleted_at`，数据库记录和本地视频文件都保留。
+  - 删除按类型和 ID 将 `t_generation_task.deleted` 置为 1，并记录 `deleted_at`，数据库记录和本地视频文件都保留。
   - 删除后：生成记录、任务明细和详情接口都不再返回这条任务；**用量与费用统计仍然计入**，因为参考费用需要保留，实际扣费以厂商账单为准。
 - 实现：实体 `VideoTask.deleted` 加了 `@TableLogic`，`BaseMapper` 的方法会自动带上 `deleted = 0` 条件；XML 里的自定义查询都显式写了 `deleted = 0`，删除操作由 XML 中的 `softDeleteById` 完成。
 - 已经建过表的库需要先加字段，执行 `backend/sql/ddl.sql` 末尾"表结构变更记录"里的 `ALTER TABLE` 语句。

@@ -69,14 +69,19 @@
     <select id="selectUserPage" resultMap="UserListResultMap">
         SELECT u.id, u.username, u.nickname, u.status,
                u.register_ip, u.last_login_at, u.last_login_ip, u.created_at,
-               COALESCE(v.task_count, 0)                            AS video_count,
-               COALESCE(i.task_count, 0)                            AS image_count,
-               COALESCE(v.total_cost, 0) + COALESCE(i.total_cost, 0) AS total_cost
+               COALESCE(t.video_count, 0) AS video_count,
+               COALESCE(t.image_count, 0) AS image_count,
+               COALESCE(t.total_cost, 0) AS total_cost
         FROM t_user u
-        LEFT JOIN (SELECT user_id, COUNT(*) AS task_count, SUM(total_cost) AS total_cost
-                   FROM t_video_task GROUP BY user_id) v ON v.user_id = u.id
-        LEFT JOIN (SELECT user_id, COUNT(*) AS task_count, SUM(total_cost) AS total_cost
-                   FROM t_image_task GROUP BY user_id) i ON i.user_id = u.id
+        LEFT JOIN (
+            SELECT user_id,
+                   SUM(CASE WHEN task_type = 'VIDEO' THEN 1 ELSE 0 END) AS video_count,
+                   SUM(CASE WHEN task_type = 'IMAGE' THEN 1 ELSE 0 END) AS image_count,
+                   SUM(total_cost) AS total_cost
+            FROM t_generation_task
+            WHERE user_id IS NOT NULL
+            GROUP BY user_id
+        ) t ON t.user_id = u.id
         <where>
             u.deleted = 0
             <if test="keyword != null and keyword != ''">

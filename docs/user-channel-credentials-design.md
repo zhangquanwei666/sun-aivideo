@@ -33,7 +33,7 @@
 
 第一期建议一个用户对每个厂商维护一份当前配置。例如同一用户分别拥有 DASHSCOPE、GEMINI 两条配置。这已经满足用户与 Key 配置的一对多关系，不要求同厂商支持多把 Key。
 
-以下双表结构为初版方案。当前实现已合并到 `t_user_channel_credential_version`，升级步骤见 [用户厂商密钥](user-channel-keys.md)。
+以下双表结构为初版方案。当前实现统一使用 `t_user_channel_credential`，升级步骤见 [用户厂商密钥](user-channel-keys.md)。
 
 初版的 t_user_channel_credential：
 

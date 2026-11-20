@@ -8,10 +8,11 @@ import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.converter.VideoTaskConverter;
 import com.sun.aivideo.dao.ModelConfigMapper;
-import com.sun.aivideo.dao.VideoTaskMapper;
+import com.sun.aivideo.dao.GenerationTaskMapper;
+import com.sun.aivideo.entity.GenerationTask;
+import com.sun.aivideo.entity.TaskType;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.entity.ModelType;
-import com.sun.aivideo.entity.VideoTask;
 import com.sun.aivideo.common.enums.ApiProtocol;
 import com.sun.aivideo.common.enums.TaskStatus;
 import com.sun.aivideo.common.enums.VideoMode;
@@ -47,7 +48,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class VideoGenerationServiceImpl implements VideoGenerationService {
 
-    private final VideoTaskMapper videoTaskMapper;
+    private final GenerationTaskMapper taskMapper;
     private final ModelConfigMapper modelConfigMapper;
     private final ModelConfigService modelConfigService;
     private final PromptEnhancer promptEnhancer;
@@ -68,7 +69,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
             throw new BizException(ErrorCode.RESOLUTION_RATIO_UNSUPPORTED, model.getDisplayName(), dto.getResolution(), ratio);
         }
 
-        VideoTask task = new VideoTask();
+        GenerationTask task = new GenerationTask();
         Long userId = StpUtil.getLoginIdAsLong();
         credentials.lockUser(userId);
         task.setUserId(userId);
@@ -101,21 +102,21 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         task.setLlmCost(BigDecimal.ZERO);
         task.setTotalCost(BigDecimal.ZERO);
         task.setCreatedAt(LocalDateTime.now());
-        videoTaskMapper.insert(task);
+        taskMapper.insert(TaskType.VIDEO, task);
         log.info("创建视频任务 id={} model={} provider={}", task.getId(), task.getModelCode(), task.getProvider());
 
         taskDispatch.afterCommit(() -> videoTaskWorker.submitAsync(task.getId()), () -> {
-            VideoTask rejected = new VideoTask(); rejected.setId(task.getId());
+            GenerationTask rejected = new GenerationTask(); rejected.setId(task.getId());
             rejected.setStatus(TaskStatus.FAILED.name()); rejected.setErrorCode("SERVER_BUSY");
             rejected.setErrorMessage("生成队列已满，请稍后重试；未调用厂商");
-            rejected.setFinishedAt(LocalDateTime.now()); videoTaskMapper.updateById(rejected);
+            rejected.setFinishedAt(LocalDateTime.now()); taskMapper.updateById(TaskType.VIDEO, rejected);
         });
         return VideoTaskConverter.toVO(task, model, estimate(task, model));
     }
 
     @Override
     public VideoTaskVO detail(Long id) {
-        VideoTask task = videoTaskMapper.selectById(id);
+        GenerationTask task = taskMapper.selectById(TaskType.VIDEO, id);
         if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
             throw new BizException(ErrorCode.VIDEO_NOT_FOUND, id);
         }
@@ -130,8 +131,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         }
         Map<String, ModelConfig> models = modelMap();
         Map<Long, VideoTaskVO> result = new java.util.LinkedHashMap<>();
-        // selectBatchIds 由 @TableLogic 自动过滤已删除的记录
-        for (VideoTask t : videoTaskMapper.selectBatchIds(ids)) {
+        for (GenerationTask t : taskMapper.selectBatchIds(TaskType.VIDEO, ids)) {
             if (!java.util.Objects.equals(t.getUserId(), StpUtil.getLoginIdAsLong())) continue;
             ModelConfig model = models.get(t.getModelCode());
             result.put(t.getId(), VideoTaskConverter.toVO(t, model, estimate(t, model)));
@@ -141,7 +141,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
 
     @Override
     public PageVO<VideoTaskVO> page(VideoTaskQueryDTO query) {
-        IPage<VideoTask> page = videoTaskMapper.selectTaskPage(
+        IPage<GenerationTask> page = taskMapper.selectVideoPage(
                 Page.of(query.getPageNum(), query.getPageSize()), StpUtil.getLoginIdAsLong(),
                 trimToNull(query.getStatus()),
                 trimToNull(query.getModelCode()),
@@ -159,7 +159,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
 
     @Override
     public VideoStatsVO stats() {
-        VideoStatsBO bo = videoTaskMapper.selectStats(StpUtil.getLoginIdAsLong());
+        VideoStatsBO bo = taskMapper.selectVideoStats(StpUtil.getLoginIdAsLong());
         Map<String, ModelConfig> models = modelMap();
 
         VideoStatsVO vo = new VideoStatsVO();
@@ -174,7 +174,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         vo.setAvgCost(money(bo.getAvgCost()));
         vo.setAvgElapsedMs(bo.getAvgElapsedMs() == null ? null : bo.getAvgElapsedMs().longValue());
 
-        List<VideoStatsVO.ModelStat> byModel = videoTaskMapper.selectStatsByModel(StpUtil.getLoginIdAsLong()).stream()
+        List<VideoStatsVO.ModelStat> byModel = taskMapper.selectVideoStatsByModel(StpUtil.getLoginIdAsLong()).stream()
                 .map(m -> toModelStat(m, models.get(m.getModelCode())))
                 .toList();
         vo.setByModel(byModel);
@@ -183,8 +183,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
 
     @Override
     public void delete(Long id) {
-        // selectById 由 @TableLogic 自动过滤已删除的记录
-        VideoTask task = videoTaskMapper.selectById(id);
+        GenerationTask task = taskMapper.selectById(TaskType.VIDEO, id);
         if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
             throw new BizException(ErrorCode.VIDEO_DELETED, id);
         }
@@ -192,7 +191,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
         if (status == null || !status.isFinished()) {
             throw new BizException(ErrorCode.VIDEO_IN_PROGRESS);
         }
-        if (videoTaskMapper.softDeleteById(id, StpUtil.getLoginIdAsLong()) == 0) {
+        if (taskMapper.softDeleteById(TaskType.VIDEO, id, StpUtil.getLoginIdAsLong()) == 0) {
             throw new BizException(ErrorCode.VIDEO_DELETED, id);
         }
         log.info("视频任务已删除（逻辑删除）id={} status={}", id, task.getStatus());
@@ -261,7 +260,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     }
 
     /** 未完成任务的预估费用：单价 × 请求时长 + 已产生的润色费用 */
-    private BigDecimal estimate(VideoTask task, ModelConfig model) {
+    private BigDecimal estimate(GenerationTask task, ModelConfig model) {
         if ("MOCK".equals(task.getProvider())) return BigDecimal.ZERO;
         if (model == null) {
             return null;
