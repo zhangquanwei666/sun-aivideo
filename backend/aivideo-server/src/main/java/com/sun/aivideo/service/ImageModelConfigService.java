@@ -1,6 +1,6 @@
 package com.sun.aivideo.service;
 
-import com.sun.aivideo.entity.ImageModelConfig;
+import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.vo.ImageModelListVO;
 
 public interface ImageModelConfigService {
@@ -9,8 +9,8 @@ public interface ImageModelConfigService {
     ImageModelListVO listForSelection();
 
     /** 按编码获取已启用的模型，不存在则抛业务异常 */
-    ImageModelConfig getEnabledByCode(String modelCode);
+    ModelConfig getEnabledByCode(String modelCode);
 
     /** 按编码获取模型（含已停用），不存在返回 null */
-    ImageModelConfig findByCode(String modelCode);
+    ModelConfig findByCode(String modelCode);
 }

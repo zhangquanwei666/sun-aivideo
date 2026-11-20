@@ -7,6 +7,7 @@ import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.dao.ModelConfigMapper;
 import com.sun.aivideo.entity.ModelConfig;
+import com.sun.aivideo.entity.ModelType;
 import com.sun.aivideo.model.vo.ModelConfigVO;
 import com.sun.aivideo.model.vo.ModelListVO;
 import com.sun.aivideo.model.vo.ProviderVO;
@@ -32,7 +33,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
 
     @Override
     public ModelListVO listForSelection() {
-        List<ModelConfigVO> models = modelConfigMapper.selectEnabledList().stream()
+        List<ModelConfigVO> models = modelConfigMapper.selectEnabledList(ModelType.VIDEO).stream()
                 .filter(m -> {
                     boolean supported = videoStrategyFactory.isSupported(m.getProvider());
                     if (!supported) {
@@ -73,6 +74,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
 
     @Override
     public ModelConfig findByCode(String modelCode) {
-        return modelConfigMapper.selectByModelCode(modelCode);
+        return modelConfigMapper.selectByModelCode(ModelType.VIDEO, modelCode);
     }
 }

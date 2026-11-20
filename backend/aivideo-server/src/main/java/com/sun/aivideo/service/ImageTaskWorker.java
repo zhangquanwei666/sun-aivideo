@@ -13,7 +13,7 @@ import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.config.AsyncConfig;
 import com.sun.aivideo.converter.ModelConfigConverter;
 import com.sun.aivideo.dao.ImageTaskMapper;
-import com.sun.aivideo.entity.ImageModelConfig;
+import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.entity.ImageTask;
 import com.sun.aivideo.model.bo.ImageCostBO;
 import lombok.RequiredArgsConstructor;
@@ -79,7 +79,7 @@ public class ImageTaskWorker {
         update = new ImageTask();
         update.setId(taskId);
         try (var permit = invocationGuard.acquire(task.getUserId())) {
-            ImageModelConfig model = imageModelConfigService.getEnabledByCode(task.getModelCode());
+            ModelConfig model = imageModelConfigService.getEnabledByCode(task.getModelCode());
             String finalPrompt = enhanceIfNeeded(task, update);
             update.setFinalPrompt(finalPrompt);
 

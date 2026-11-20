@@ -1,6 +1,5 @@
 package com.sun.aivideo.service;
 
-import com.sun.aivideo.entity.ImageModelConfig;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.bo.ImageCostBO;
 import com.sun.aivideo.model.bo.VideoCostBO;
@@ -21,10 +20,10 @@ public interface CostService {
     BigDecimal calcLlmCost(int inputTokens, int outputTokens);
 
     /** 图片模型在某清晰度下的每张单价（按模型的计价币种），未配置返回 null */
-    BigDecimal imageUnitPrice(ImageModelConfig model, String imageSize);
+    BigDecimal imageUnitPrice(ModelConfig model, String imageSize);
 
     /** 图片费用：每张单价折算成人民币 × 张数 */
-    ImageCostBO calcImageCost(ImageModelConfig model, String imageSize, int imageCount);
+    ImageCostBO calcImageCost(ModelConfig model, String imageSize, int imageCount);
 
     /** 按币种折算成人民币（USD 使用 aivideo.cost.usd-to-cny） */
     BigDecimal toCny(BigDecimal amount, String currency);

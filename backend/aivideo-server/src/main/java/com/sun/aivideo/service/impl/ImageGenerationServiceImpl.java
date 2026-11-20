@@ -8,11 +8,12 @@ import com.sun.aivideo.common.enums.TaskStatus;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ImageTaskConverter;
 import com.sun.aivideo.converter.ModelConfigConverter;
-import com.sun.aivideo.dao.ImageModelConfigMapper;
+import com.sun.aivideo.dao.ModelConfigMapper;
 import com.sun.aivideo.dao.ImageTaskMapper;
 import com.sun.aivideo.dao.bo.ImageModelStatBO;
 import com.sun.aivideo.dao.bo.ImageStatsBO;
-import com.sun.aivideo.entity.ImageModelConfig;
+import com.sun.aivideo.entity.ModelConfig;
+import com.sun.aivideo.entity.ModelType;
 import com.sun.aivideo.entity.ImageTask;
 import com.sun.aivideo.model.dto.ImageGenerateDTO;
 import com.sun.aivideo.model.vo.ImageStatsVO;
@@ -45,7 +46,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     private static final String FILES_PREFIX = "/files/";
 
     private final ImageTaskMapper imageTaskMapper;
-    private final ImageModelConfigMapper imageModelConfigMapper;
+    private final ModelConfigMapper modelConfigMapper;
     private final ImageModelConfigService imageModelConfigService;
     private final ImageGenerationStrategyFactory imageStrategyFactory;
     private final PromptEnhancer promptEnhancer;
@@ -57,7 +58,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public ImageTaskVO create(ImageGenerateDTO dto) {
-        ImageModelConfig model = imageModelConfigService.getEnabledByCode(dto.getModelCode());
+        ModelConfig model = imageModelConfigService.getEnabledByCode(dto.getModelCode());
         if (!imageStrategyFactory.isSupported(model.getProvider())) {
             throw new BizException(ErrorCode.IMAGE_PROVIDER_UNSUPPORTED, ImageProvider.labelOf(model.getProvider()));
         }
@@ -110,7 +111,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         if (task == null || !java.util.Objects.equals(task.getUserId(), StpUtil.getLoginIdAsLong())) {
             throw new BizException(ErrorCode.IMAGE_NOT_FOUND, id);
         }
-        ImageModelConfig model = imageModelConfigService.findByCode(task.getModelCode());
+        ModelConfig model = imageModelConfigService.findByCode(task.getModelCode());
         return ImageTaskConverter.toVO(task, model, estimate(task, model));
     }
 
@@ -119,11 +120,11 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
-        Map<String, ImageModelConfig> models = modelMap();
+        Map<String, ModelConfig> models = modelMap();
         Map<Long, ImageTaskVO> result = new LinkedHashMap<>();
         for (ImageTask t : imageTaskMapper.selectBatchIds(ids)) {
             if (!java.util.Objects.equals(t.getUserId(), StpUtil.getLoginIdAsLong())) continue;
-            ImageModelConfig model = models.get(t.getModelCode());
+            ModelConfig model = models.get(t.getModelCode());
             result.put(t.getId(), ImageTaskConverter.toVO(t, model, estimate(t, model)));
         }
         return result;
@@ -148,7 +149,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     @Override
     public ImageStatsVO stats() {
         ImageStatsBO bo = imageTaskMapper.selectStats(StpUtil.getLoginIdAsLong());
-        Map<String, ImageModelConfig> models = modelMap();
+        Map<String, ModelConfig> models = modelMap();
 
         ImageStatsVO vo = new ImageStatsVO();
         vo.setTotalCount(nz(bo.getTotalCount()));
@@ -170,7 +171,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     // ------------------------------------------------------------------
 
     /** 校验参数是否符合模型能力，返回最终使用的画幅比例 */
-    private String validate(ImageGenerateDTO dto, ImageModelConfig model) {
+    private String validate(ImageGenerateDTO dto, ModelConfig model) {
         List<String> sizes = ModelConfigConverter.split(model.getSizes());
         if (!sizes.contains(dto.getImageSize())) {
             throw new BizException(ErrorCode.IMAGE_SIZE_UNSUPPORTED, model.getDisplayName(), String.join(" / ", sizes));
@@ -205,7 +206,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     }
 
     /** 未完成任务的预估费用：每张单价（人民币）× 张数 + 已产生的润色费用 */
-    private BigDecimal estimate(ImageTask task, ImageModelConfig model) {
+    private BigDecimal estimate(ImageTask task, ModelConfig model) {
         if ("MOCK".equals(task.getProvider())) return BigDecimal.ZERO;
         if (model == null) {
             return null;
@@ -216,7 +217,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         return image.add(llm).setScale(4, RoundingMode.HALF_UP);
     }
 
-    private ImageStatsVO.ModelStat toModelStat(ImageModelStatBO m, ImageModelConfig model) {
+    private ImageStatsVO.ModelStat toModelStat(ImageModelStatBO m, ModelConfig model) {
         ImageStatsVO.ModelStat s = new ImageStatsVO.ModelStat();
         s.setModelCode(m.getModelCode());
         s.setModelName(model != null ? model.getDisplayName() : m.getModelCode());
@@ -228,9 +229,9 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         return s;
     }
 
-    private Map<String, ImageModelConfig> modelMap() {
-        return imageModelConfigMapper.selectList(null).stream()
-                .collect(Collectors.toMap(ImageModelConfig::getModelCode, Function.identity(), (a, b) -> a));
+    private Map<String, ModelConfig> modelMap() {
+        return modelConfigMapper.selectAllByType(ModelType.IMAGE).stream()
+                .collect(Collectors.toMap(ModelConfig::getModelCode, Function.identity(), (a, b) -> a));
     }
 
     private static long nz(Long v) {

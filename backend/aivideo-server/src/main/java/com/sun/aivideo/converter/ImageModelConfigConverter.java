@@ -1,7 +1,7 @@
 package com.sun.aivideo.converter;
 
 import com.sun.aivideo.common.enums.ImageProvider;
-import com.sun.aivideo.entity.ImageModelConfig;
+import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.vo.ImageModelConfigVO;
 
 import java.math.BigDecimal;
@@ -17,7 +17,7 @@ public final class ImageModelConfigConverter {
     /**
      * @param toCny 原币种金额 → 人民币（金额, 币种）
      */
-    public static ImageModelConfigVO toVO(ImageModelConfig m, BiFunction<BigDecimal, String, BigDecimal> toCny) {
+    public static ImageModelConfigVO toVO(ModelConfig m, BiFunction<BigDecimal, String, BigDecimal> toCny) {
         ImageModelConfigVO vo = new ImageModelConfigVO();
         vo.setModelCode(m.getModelCode());
         vo.setDisplayName(m.getDisplayName());

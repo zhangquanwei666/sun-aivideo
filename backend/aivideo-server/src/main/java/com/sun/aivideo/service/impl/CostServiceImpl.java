@@ -2,7 +2,6 @@ package com.sun.aivideo.service.impl;
 
 import com.sun.aivideo.ai.config.LlmProperties;
 import com.sun.aivideo.config.AiVideoProperties;
-import com.sun.aivideo.entity.ImageModelConfig;
 import com.sun.aivideo.entity.ModelConfig;
 import com.sun.aivideo.model.bo.ImageCostBO;
 import com.sun.aivideo.model.bo.VideoCostBO;
@@ -52,7 +51,7 @@ public class CostServiceImpl implements CostService {
     }
 
     @Override
-    public BigDecimal imageUnitPrice(ImageModelConfig model, String imageSize) {
+    public BigDecimal imageUnitPrice(ModelConfig model, String imageSize) {
         return switch (imageSize) {
             case "1K" -> model.getPrice1k();
             case "2K" -> model.getPrice2k();
@@ -62,7 +61,7 @@ public class CostServiceImpl implements CostService {
     }
 
     @Override
-    public ImageCostBO calcImageCost(ImageModelConfig model, String imageSize, int imageCount) {
+    public ImageCostBO calcImageCost(ModelConfig model, String imageSize, int imageCount) {
         BigDecimal price = imageUnitPrice(model, imageSize);
         if (price == null) {
             price = BigDecimal.ZERO;

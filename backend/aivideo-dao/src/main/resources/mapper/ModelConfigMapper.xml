@@ -6,6 +6,7 @@
     <!-- 表 t_model_config → 实体 ModelConfig -->
     <resultMap id="BaseResultMap" type="com.sun.aivideo.entity.ModelConfig">
         <id     column="id"               property="id"/>
+        <result column="model_type"       property="modelType"/>
         <result column="model_code"       property="modelCode"/>
         <result column="display_name"     property="displayName"/>
         <result column="provider"         property="provider"/>
@@ -21,6 +22,11 @@
         <result column="price_720p"       property="price720p"/>
         <result column="price_1080p"      property="price1080p"/>
         <result column="supports_audio"   property="supportsAudio"/>
+        <result column="sizes"            property="sizes"/>
+        <result column="max_reference_images" property="maxReferenceImages"/>
+        <result column="price_1k"         property="price1k"/>
+        <result column="price_2k"         property="price2k"/>
+        <result column="price_4k"         property="price4k"/>
         <result column="description"      property="description"/>
         <result column="price_note"       property="priceNote"/>
         <result column="enabled"          property="enabled"/>
@@ -30,16 +36,18 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, model_code, display_name, provider, mode, protocol, resolutions, ratios,
+        id, model_type, model_code, display_name, provider, mode, protocol, resolutions, ratios,
         min_duration, max_duration, default_duration, currency, price_480p, price_720p, price_1080p,
-        supports_audio, description, price_note, enabled, sort_order, created_at, updated_at
+        supports_audio, sizes, max_reference_images, price_1k, price_2k, price_4k,
+        description, price_note, enabled, sort_order, created_at, updated_at
     </sql>
 
     <!-- ModelConfigMapper#selectEnabledList：已启用的模型 -->
     <select id="selectEnabledList" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM t_model_config
-        WHERE enabled = 1
+        WHERE model_type = #{modelType}
+          AND enabled = 1
         ORDER BY sort_order, id
     </select>
 
@@ -47,7 +55,14 @@
     <select id="selectByModelCode" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM t_model_config
-        WHERE model_code = #{modelCode}
+        WHERE model_type = #{modelType}
+          AND model_code = #{modelCode}
+    </select>
+
+    <select id="selectAllByType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_model_config
+        WHERE model_type = #{modelType}
     </select>
 
 </mapper>

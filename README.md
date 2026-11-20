@@ -13,14 +13,14 @@ sun-aivideo/
 │   ├── aivideo-server/      前台服务：用户登录、图片/视频生成、费用与耗时统计
 │   ├── aivideo-admin/       管理服务：管理员登录、用户管理、全站生成记录
 │   └── sql/                 数据库脚本（手动执行）
-│       ├── ddl.sql          DDL：建表（视频：t_model_config、t_video_task；文生图：t_image_model_config、t_image_task）
+│       ├── ddl.sql          DDL：建表（模型目录 t_model_config，任务 t_video_task、t_image_task）
 │       └── dml.sql          DML：初始化数据（视频模型与单价、文生图模型与单价）
 └── frontend/
     ├── user-frontend/       用户前台 Vue 3.5 · Vite 6（图片/视频生成）
     └── admin-frontend/      管理后台 Vue 3.5 · Vite 6（用户、生成记录）
 ```
 
-用户密钥的部署、数据库结构及接口详见 [用户厂商密钥](docs/user-channel-keys.md)。已有环境已完成凭证表和任务字段升级；用户服务的加密主密钥见配置文件。
+用户密钥统一存储在凭证版本表。已有双表环境需要在启动新版前执行合表脚本。数据库结构、加密配置和接口见 [用户厂商密钥](docs/user-channel-keys.md)。
 
 会员功能已移除。已有数据库的清理脚本为 [20261113_remove_membership.sql](backend/sql/20261113_remove_membership.sql)，发布与执行顺序见 [管理后台说明](docs/admin-api.md)。新建库的 `ddl.sql` 已同步移除相关表和字段。
 
@@ -116,7 +116,7 @@ aivideo-ai-channel-gemini/（com.sun.aivideo.ai.gemini）
 - **新增视频厂商**（可灵、火山引擎 Seedance 等）：
   1. 在 `VideoProvider` 中加一个枚举值，并写上中文名，例如 `KLING("快手可灵")`；
   2. 新建 `aivideo-ai-channel-厂商名` Maven 模块，依赖 `aivideo-ai-core`，在父工程注册并由 server 引入；在厂商包内实现 `VideoGenerationStrategy` 并加上 `@Component`，按接口的凭证参数设置本次调用的鉴权信息；
-  3. 往 `t_model_config` 插入该厂商的模型和单价（`provider` 填枚举名）。
+  3. 往 `t_model_config` 插入该厂商的模型和单价，`model_type` 填 `VIDEO`，`provider` 填枚举名。
 
   工厂会自动收录新策略，前端的**厂商下拉框**也会自动出现这个厂商，server 不用改。只往表里插了模型、还没写策略的厂商，不会出现在前端。
 - **厂商与模型的前端选择**：先选厂商，再选该厂商下的模型。平台显示已接入厂商，按当前用户的凭证配置判断可用性。缺少或停用个人 Key 时提示前往“模型密钥”配置；不会自动回退 Mock 或使用平台 Key。
@@ -179,7 +179,7 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
    - **耗时**：排队 = `scheduled_time - submit_time`；生成 = `end_time - scheduled_time`；总耗时 = 百炼 `end_time` - 用户点击生成的时间
    - 自动把视频下载到 `<工作目录>/data/files/videos/`（本地运行时为 `backend/aivideo-server/data/`），因为百炼的 `video_url` 只有 24 小时有效。
 
-单价存在 `t_model_config` 表里（初始数据见 `backend/sql/dml.sql`），可以直接在库里改。
+图片和视频的模型目录与单价统一存储在 `t_model_config`，按 `(model_type, model_code)` 查找。两类模型共用厂商、展示名称、启停状态、排序和币种。`VIDEO` 使用请求协议、生成方式、分辨率、时长和每秒单价，`IMAGE` 使用清晰度、参考图数量和每张单价。专属字段只填对应类型，模型列表和历史任务均按类型查配置。初始数据见 [dml.sql](backend/sql/dml.sql)。
 
 ## 环境
 
@@ -194,10 +194,12 @@ Mapper 接口与 XML 的对应关系（XML 位置由 `mybatis-plus.mapper-locati
 
 | 顺序 | 文件 | 类型 | 做什么 |
 |---|---|---|---|
-| 1 | `backend/sql/ddl.sql` | DDL | 建表：`t_model_config`（视频模型配置与单价）、`t_video_task`（视频生成任务，含耗时与费用） |
-| 2 | `backend/sql/dml.sql` | DML | 初始化数据：插入 4 个通义万相模型及各分辨率单价（`INSERT IGNORE`，重复执行不会覆盖已有数据） |
+| 1 | `backend/sql/ddl.sql` | DDL | 创建统一模型配置表、图片和视频任务表等业务表 |
+| 2 | `backend/sql/dml.sql` | DML | 初始化图片和视频模型及单价（`INSERT IGNORE`，重复执行不会覆盖已有数据） |
 
 两个脚本都可以重复执行：建表用 `CREATE TABLE IF NOT EXISTS`，数据用 `INSERT IGNORE`。每条语句和每个字段在脚本里都有注释说明用途。以后新增或修改表结构写进 `ddl.sql`，新增初始数据写进 `dml.sql`。
+
+已有两个模型配置表的环境，先停止旧版服务并备份两张配置表，然后在目标业务库单独执行合表脚本。脚本会建立统一表结构、迁入旧图片配置、补齐默认模型，并在核对一致后删除旧图片表。已有模型配置优先保留。旧视频配置保留原 ID，旧图片配置取得新 ID，历史任务仍按类型和模型编码查找配置。如果结果为 `OLD_TABLE_RETAINED`，先核对差异再清理旧表。[合表迁移 SQL](backend/sql/20261120_merge_model_config.sql)
 
 后端配置文件在 `backend/aivideo-server/src/main/resources/`：`application.yml` 放公共配置，`application-{uat,pro}.yml` 放各环境的差异。AI 配置项也写在这些文件里：`aivideo.llm.*`、`aivideo.mock.*` 由 AI 核心模块的 Properties 类读取，`aivideo.dashscope.*`、`aivideo.gemini.*` 分别由对应厂商模块的 Properties 类读取。用户前台配置在 `frontend/user-frontend/.env.*`，管理前端配置在 `frontend/admin-frontend/.env.*`。
 
@@ -281,7 +283,7 @@ mvn -pl aivideo-admin -am spring-boot:run
 
 ### PRO 生产部署
 
-1. 在生产库手动执行 `backend/sql/ddl.sql`（建表），再执行 `backend/sql/dml.sql`（初始数据）。
+1. 新建生产库依次执行 `backend/sql/ddl.sql` 和 `backend/sql/dml.sql`。已有模型分表的生产库按上文步骤执行 `backend/sql/20261120_merge_model_config.sql`。
 2. 打包后端，并用生产配置启动：
 
 ```bash
@@ -379,7 +381,7 @@ UAT 的前端用 `npm run build:uat` 打包，部署方式相同。
 - **流程**：提交后后台线程执行：可选的千问润色 → 同步调用厂商生成 → 图片立刻保存到本地 `/files/generated/...`（百炼返回的地址 24 小时失效）→ 记录费用和耗时。图片是同步生成的，不需要定时轮询；服务重启时会把中断的任务标记为失败。
 - **用作首帧**：图片卡片上的"生成视频"按钮，或详情里的"用作首帧生成视频"，会把这张图设为图生视频的首帧。
 - **网络**：国内直连 Google 不通时，配置 `GEMINI_PROXY_HOST` / `GEMINI_PROXY_PORT` 走本机代理，或把 `aivideo.gemini.base-url` 换成中转地址。
-- **新增文生图厂商**：在 `ImageProvider` 加枚举值，实现 `ImageGenerationStrategy` 并加 `@Component`，再往 `t_image_model_config` 插入模型和单价。
+- **新增文生图厂商**：在 `ImageProvider` 加枚举值，实现 `ImageGenerationStrategy` 并加 `@Component`，再往 `t_model_config` 插入模型和单价，`model_type` 填 `IMAGE`。
 
 ## Gemini 视频生成（Omni Flash）
 

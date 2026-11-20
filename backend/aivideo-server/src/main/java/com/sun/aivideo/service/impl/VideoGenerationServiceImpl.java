@@ -10,6 +10,7 @@ import com.sun.aivideo.converter.VideoTaskConverter;
 import com.sun.aivideo.dao.ModelConfigMapper;
 import com.sun.aivideo.dao.VideoTaskMapper;
 import com.sun.aivideo.entity.ModelConfig;
+import com.sun.aivideo.entity.ModelType;
 import com.sun.aivideo.entity.VideoTask;
 import com.sun.aivideo.common.enums.ApiProtocol;
 import com.sun.aivideo.common.enums.TaskStatus;
@@ -283,7 +284,7 @@ public class VideoGenerationServiceImpl implements VideoGenerationService {
     }
 
     private Map<String, ModelConfig> modelMap() {
-        return modelConfigMapper.selectList(null).stream()
+        return modelConfigMapper.selectAllByType(ModelType.VIDEO).stream()
                 .collect(Collectors.toMap(ModelConfig::getModelCode, Function.identity(), (a, b) -> a));
     }
 

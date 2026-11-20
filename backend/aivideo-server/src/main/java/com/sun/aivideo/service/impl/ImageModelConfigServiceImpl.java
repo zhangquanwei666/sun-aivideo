@@ -5,8 +5,9 @@ import com.sun.aivideo.ai.image.ImageGenerationStrategyFactory;
 import com.sun.aivideo.common.enums.ImageProvider;
 import com.sun.aivideo.common.exception.BizException;
 import com.sun.aivideo.converter.ImageModelConfigConverter;
-import com.sun.aivideo.dao.ImageModelConfigMapper;
-import com.sun.aivideo.entity.ImageModelConfig;
+import com.sun.aivideo.dao.ModelConfigMapper;
+import com.sun.aivideo.entity.ModelConfig;
+import com.sun.aivideo.entity.ModelType;
 import com.sun.aivideo.model.vo.ImageModelConfigVO;
 import com.sun.aivideo.model.vo.ImageModelListVO;
 import com.sun.aivideo.model.vo.ProviderVO;
@@ -25,14 +26,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ImageModelConfigServiceImpl implements ImageModelConfigService {
 
-    private final ImageModelConfigMapper imageModelConfigMapper;
+    private final ModelConfigMapper modelConfigMapper;
     private final ImageGenerationStrategyFactory imageStrategyFactory;
     private final CostService costService;
     private final com.sun.aivideo.service.ChannelCredentialService credentials;
 
     @Override
     public ImageModelListVO listForSelection() {
-        List<ImageModelConfigVO> models = imageModelConfigMapper.selectEnabledList().stream()
+        List<ImageModelConfigVO> models = modelConfigMapper.selectEnabledList(ModelType.IMAGE).stream()
                 .filter(m -> {
                     boolean supported = imageStrategyFactory.isSupported(m.getProvider());
                     if (!supported) {
@@ -62,8 +63,8 @@ public class ImageModelConfigServiceImpl implements ImageModelConfigService {
     }
 
     @Override
-    public ImageModelConfig getEnabledByCode(String modelCode) {
-        ImageModelConfig model = findByCode(modelCode);
+    public ModelConfig getEnabledByCode(String modelCode) {
+        ModelConfig model = findByCode(modelCode);
         if (model == null || !Boolean.TRUE.equals(model.getEnabled())) {
             throw new BizException(ErrorCode.IMAGE_MODEL_NOT_FOUND, modelCode);
         }
@@ -71,7 +72,7 @@ public class ImageModelConfigServiceImpl implements ImageModelConfigService {
     }
 
     @Override
-    public ImageModelConfig findByCode(String modelCode) {
-        return imageModelConfigMapper.selectByModelCode(modelCode);
+    public ModelConfig findByCode(String modelCode) {
+        return modelConfigMapper.selectByModelCode(ModelType.IMAGE, modelCode);
     }
 }

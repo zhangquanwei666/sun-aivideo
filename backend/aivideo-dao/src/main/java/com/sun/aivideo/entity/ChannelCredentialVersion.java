@@ -10,9 +10,14 @@ import java.time.LocalDateTime;
 @TableName("t_user_channel_credential_version")
 public class ChannelCredentialVersion {
     @TableId(type = IdType.AUTO) private Long id;
-    private Long credentialId;
+    private Long userId;
+    private String channelCode;
+    /** 1 为当前版本，NULL 为历史版本。 */
+    private Integer currentSlot;
+    private Boolean enabled;
     private String ciphertext;
     private String encryptionKeyId;
     private String keySuffix;
     @TableField(fill = FieldFill.INSERT) private LocalDateTime createdAt;
+    @TableField(fill = FieldFill.INSERT_UPDATE) private LocalDateTime updatedAt;
 }

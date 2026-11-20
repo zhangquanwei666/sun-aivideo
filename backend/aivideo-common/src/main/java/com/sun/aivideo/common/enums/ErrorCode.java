@@ -55,7 +55,7 @@ public enum ErrorCode {
     FIRST_FRAME_DURATION(400, "%s 使用首帧图片时最长 10 秒"),
     RATIO_UNSUPPORTED(400, "%s 只支持画幅：%s"),
     IMAGE_SIZE_UNSUPPORTED(400, "%s 只支持清晰度：%s"),
-    IMAGE_PRICE_MISSING(400, "未配置 %s 的单价，请先在 t_image_model_config 中补充"),
+    IMAGE_PRICE_MISSING(400, "未配置 %s 的单价，请先在 t_model_config 中补充图片模型单价"),
     SAVE_IMAGE_FAILED(500, "保存图片失败：%s"),
     READ_IMAGE_FAILED(500, "读取图片失败：%s"),
     SAVE_VIDEO_FAILED(500, "保存视频失败：%s"),
